@@ -3,6 +3,8 @@ import tempfile
 import sys
 import json
 import time
+import signal
+import threading
 from flask import Flask, render_template, request, flash, redirect, url_for
 from werkzeug.utils import secure_filename
 
@@ -10,6 +12,14 @@ from werkzeug.utils import secure_filename
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from amazon_photos import AmazonPhotos
 from docker_sync.amazon_auth import get_amazon_cookies, create_driver
+
+def shutdown_server():
+    time.sleep(1.5)  # Let the response send completely
+    print("[Web App] Self-terminating after successful login...")
+    os.kill(os.getpid(), signal.SIGINT)
+
+def trigger_shutdown():
+    threading.Thread(target=shutdown_server).start()
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -105,8 +115,8 @@ def evaluate_page_state(driver):
                 pass
             selenium_session['driver'] = None
             selenium_session['status'] = 'success'
-            flash("Erfolgreich eingeloggt!")
-            return redirect(url_for("index"))
+            trigger_shutdown()
+            return render_template("success.html")
 
     # Check for OTP page
     try:
@@ -127,20 +137,27 @@ def evaluate_page_state(driver):
         pass
 
     # Check for general login error
+    error_message = None
     try:
         error_box = driver.find_element(By.ID, "auth-error-message-box")
-        selenium_session['error'] = error_box.text
+        error_message = error_box.text
+        selenium_session['error'] = error_message
     except Exception:
         selenium_session['error'] = None
 
-    # Default fallback: stay on page or show error screenshot
-    selenium_session['status'] = 'failed'
+    if error_message:
+        selenium_session['status'] = 'failed'
+        selenium_session['screenshot'] = driver.get_screenshot_as_base64()
+        try:
+            driver.quit()
+        except Exception:
+            pass
+        selenium_session['driver'] = None
+        return render_template("login.html", session=selenium_session)
+
+    # Default fallback: keep driver alive for user action (like push notifications)
+    selenium_session['status'] = 'need_action'
     selenium_session['screenshot'] = driver.get_screenshot_as_base64()
-    try:
-        driver.quit()
-    except Exception:
-        pass
-    selenium_session['driver'] = None
     return render_template("login.html", session=selenium_session)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -168,8 +185,8 @@ def login():
     if action == "import_cookies":
         cookies_json = request.form.get("cookies_json")
         if cookies_json and parse_and_save_cookies(cookies_json):
-            flash("Cookies erfolgreich importiert!")
-            return redirect(url_for("index"))
+            trigger_shutdown()
+            return render_template("success.html")
         else:
             flash("Fehler: Ungültiges Cookie-Format. Bitte überprüfe die Daten.")
             return redirect(url_for("login"))
@@ -199,6 +216,18 @@ def login():
             except Exception:
                 pass
                 
+            time.sleep(3) # Wait for page transition
+            
+            # Check if a Captcha image exists on the page immediately after clicking continue (Email-page Captcha)
+            try:
+                driver.find_element(By.ID, "auth-captcha-image")
+                print("[Web UI Login] Captcha triggered on Email page.")
+                selenium_session['status'] = 'need_captcha'
+                selenium_session['screenshot'] = driver.get_screenshot_as_base64()
+                return render_template("login.html", session=selenium_session)
+            except Exception:
+                pass
+                
             # Step 2: Input Password (wait until visible)
             password_input = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.ID, "ap_password"))
@@ -213,13 +242,16 @@ def login():
             return evaluate_page_state(driver)
             
         except Exception as e:
-            flash(f"Fehler bei der Initialisierung: {e}")
+            print(f"[Web UI Login] Error during credentials submit: {e}")
+            selenium_session['status'] = 'failed'
             try:
+                selenium_session['error'] = str(e)
+                selenium_session['screenshot'] = driver.get_screenshot_as_base64()
                 driver.quit()
             except Exception:
                 pass
             selenium_session['driver'] = None
-            return redirect(url_for("login"))
+            return render_template("login.html", session=selenium_session)
             
     # 3. Submit Captcha Code
     elif action == "submit_captcha":
@@ -234,27 +266,55 @@ def login():
             captcha_input.clear()
             captcha_input.send_keys(captcha_code)
             
-            # Re-enter password if Amazon cleared it
+            # Check if password field is visible right now (Password-page Captcha)
+            password_field_present = False
             try:
                 password_input = driver.find_element(By.ID, "ap_password")
+                password_field_present = True
                 if selenium_session['password']:
                     password_input.clear()
                     password_input.send_keys(selenium_session['password'])
             except Exception:
                 pass
                 
-            driver.find_element(By.ID, "signInSubmit").click()
-            time.sleep(5)
+            # Click continue or submit
+            try:
+                if not password_field_present:
+                    driver.find_element(By.ID, "continue").click()
+                else:
+                    driver.find_element(By.ID, "signInSubmit").click()
+            except Exception:
+                driver.find_element(By.ID, "signInSubmit").click()
+                
+            time.sleep(3)
+            
+            # If we were on the Email page and just solved Captcha, we should now be on the Password page.
+            if not password_field_present:
+                # Wait for password input to appear and fill it
+                try:
+                    password_input = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.ID, "ap_password"))
+                    )
+                    if selenium_session['password']:
+                        password_input.clear()
+                        password_input.send_keys(selenium_session['password'])
+                    driver.find_element(By.ID, "signInSubmit").click()
+                    time.sleep(5)
+                except Exception:
+                    pass # Let evaluate_page_state handle it
             
             return evaluate_page_state(driver)
         except Exception as e:
-            flash(f"Fehler beim Übermitteln des Captchas: {e}")
+            print(f"[Web UI Login] Error during captcha submit: {e}")
+            selenium_session['status'] = 'failed'
             try:
+                selenium_session['error'] = str(e)
+                selenium_session['screenshot'] = driver.get_screenshot_as_base64()
                 driver.quit()
             except Exception:
                 pass
             selenium_session['driver'] = None
-            return redirect(url_for("login"))
+            return render_template("login.html", session=selenium_session)
             
     # 4. Submit OTP / 2FA Code
     elif action == "submit_otp":
@@ -282,13 +342,37 @@ def login():
             
             return evaluate_page_state(driver)
         except Exception as e:
-            flash(f"Fehler beim Übermitteln des OTPs: {e}")
+            print(f"[Web UI Login] Error during OTP submit: {e}")
+            selenium_session['status'] = 'failed'
             try:
+                selenium_session['error'] = str(e)
+                selenium_session['screenshot'] = driver.get_screenshot_as_base64()
                 driver.quit()
             except Exception:
                 pass
             selenium_session['driver'] = None
+            return render_template("login.html", session=selenium_session)
+
+    # 5. Check Status (for push notifications / manual action confirmation)
+    elif action == "check_status":
+        driver = selenium_session['driver']
+        if not driver:
+            flash("Sitzung abgelaufen. Bitte erneut anmelden.")
             return redirect(url_for("login"))
+            
+        try:
+            return evaluate_page_state(driver)
+        except Exception as e:
+            print(f"[Web UI Login] Error checking status: {e}")
+            selenium_session['status'] = 'failed'
+            try:
+                selenium_session['error'] = str(e)
+                selenium_session['screenshot'] = driver.get_screenshot_as_base64()
+                driver.quit()
+            except Exception:
+                pass
+            selenium_session['driver'] = None
+            return render_template("login.html", session=selenium_session)
 
     return render_template("login.html", session=selenium_session)
 

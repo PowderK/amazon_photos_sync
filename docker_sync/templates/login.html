@@ -316,6 +316,46 @@
                 </button>
             </form>
 
+        {% elif session.status == 'need_action' %}
+            <div class="alert alert-info">
+                <strong>Zusätzliche Freigabe erforderlich.</strong><br>
+                Amazon verlangt eine Bestätigung (z. B. Bestätigungs-Link per E-Mail, SMS oder App-Mitteilung). Bitte überprüfe deine Geräte.
+            </div>
+
+            {% if session.screenshot %}
+            <div class="screenshot-container">
+                <img src="data:image/png;base64,{{ session.screenshot }}" alt="Amazon Screenshot">
+            </div>
+            {% endif %}
+
+            <form method="POST" id="form-action">
+                <input type="hidden" name="action" value="check_status">
+                <button type="submit" class="btn" id="btn-submit-action">
+                    <span class="btn-text">Ich habe die Freigabe erteilt / Status aktualisieren</span>
+                </button>
+            </form>
+            
+            <a href="/login" class="btn" style="text-decoration: none; margin-top: 10px; background: rgba(255, 255, 255, 0.1); color: var(--text-primary);">Abbrechen und neu starten</a>
+
+        {% elif session.status == 'failed' %}
+            <div class="alert alert-error">
+                <strong>Anmeldung fehlgeschlagen.</strong><br>
+                {% if session.error %}
+                    {{ session.error }}
+                {% else %}
+                    Der Anmeldevorgang konnte nicht abgeschlossen werden. Bitte überprüfe deine Zugangsdaten und versuche es erneut.
+                {% endif %}
+            </div>
+            
+            {% if session.screenshot %}
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Browser-Screenshot bei Fehler:</p>
+            <div class="screenshot-container" style="max-height: 350px; height: auto;">
+                <img src="data:image/png;base64,{{ session.screenshot }}" alt="Fehler Screenshot">
+            </div>
+            {% endif %}
+            
+            <a href="/login" class="btn" style="text-decoration: none; margin-top: 10px;">Erneut versuchen</a>
+
         {% else %}
             <!-- Normal setup tabs -->
             <div class="tabs">
@@ -384,8 +424,8 @@
             btn.disabled = true;
         }
 
-        // Auto loading indicator on captcha/otp forms submit
-        ['form-captcha', 'form-otp'].forEach(formId => {
+        // Auto loading indicator on captcha/otp/action forms submit
+        ['form-captcha', 'form-otp', 'form-action'].forEach(formId => {
             const form = document.getElementById(formId);
             if (form) {
                 form.addEventListener('submit', () => {

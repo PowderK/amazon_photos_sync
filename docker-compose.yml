@@ -4,14 +4,12 @@ services:
     container_name: amazon-photos-sync
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "5001:5000"
     environment:
       - WATCH_DIR=/watch_dir
       - DRY_RUN=false
       - SYNC_EXTENSIONS=heic jpg jpeg png
       - SYNC_RECURSIVE=true
-      - AMAZON_EMAIL=your-email@example.com
-      - AMAZON_PASSWORD=your-password
     volumes:
       # Mount point for local photos directory to sync (Change this to your actual photos directory path)
       - ./sync_test_folder:/watch_dir

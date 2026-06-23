@@ -79,21 +79,10 @@ if [ ! -f "$COOKIE_FILE" ]; then
     echo "[Entrypoint] No cookies found. Starting Flask Login Web App on port 5000..."
     echo "[Entrypoint] Please open http://localhost:5000 in your browser to log in."
     
-    # Start the Flask app in the background
-    python -c "import sys; sys.path.append('/app'); from docker_sync.web_app import app; app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)" &
-    WEB_APP_PID=$!
+    # Run the Flask app in the foreground. It will self-terminate upon successful login.
+    python -c "import sys; sys.path.append('/app'); from docker_sync.web_app import app; app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)"
     
-    echo "[Entrypoint] Web App started with PID $WEB_APP_PID. Waiting for login..."
-    
-    # Wait for cookies.json to be created by the login flow
-    while [ ! -f "$COOKIE_FILE" ]; do
-        sleep 2
-    done
-    
-    echo "[Entrypoint] cookies.json detected! Stopping Web App..."
-    kill $WEB_APP_PID
-    wait $WEB_APP_PID 2>/dev/null || true
-    echo "[Entrypoint] Web App stopped."
+    echo "[Entrypoint] Web App stopped. Proceeding..."
 fi
 
 echo "[Entrypoint] Starting folder watcher..."
