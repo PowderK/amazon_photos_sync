@@ -90,6 +90,12 @@ def evaluate_page_state(driver):
     global selenium_session, ap_client
     current_url = driver.current_url
     print(f"[Web UI Login] Current URL: {current_url}")
+    try:
+        print(f"[Web UI Login] Page Title: {driver.title}")
+        body_text = driver.find_element(By.TAG_NAME, "body").text
+        print(f"[Web UI Login] Page text snippet: {body_text[:500].replace(chr(10), ' | ')}")
+    except Exception as e:
+        print(f"[Web UI Login] Could not read page text/title: {e}")
     
     # Check if redirect to photos/drive was successful
     if "amazon.de/photos" in current_url or "amazon.de/drive" in current_url:
