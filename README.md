@@ -1,4 +1,6 @@
-# Amazon Photos API
+# Amazon Photos Sync
+
+This project is a 1-way Docker-based local directory synchronization tool for Amazon Photos. It is a fork of the excellent [amazon_photos Python library](https://github.com/trevorhobenshield/amazon_photos) by [Trevor Hobenshield](https://github.com/trevorhobenshield), which we extended to support Selenium-based auto-login, EXIF taken date-based catalog matching, and a persistent SQLite upload cache database.
 
 ## Table of Contents
 

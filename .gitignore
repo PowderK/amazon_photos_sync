@@ -158,3 +158,14 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Development and Local database files
+ap.parquet
+docker_sync/cookies.json
+docker_sync/sync_cache.db
+config/
+sync_test_folder/
+2026-05-31/
+scratch/
+.DS_Store
+run_amazon_photos.py

@@ -44,7 +44,7 @@ logger = getLogger(list(Logger.manager.loggerDict)[-1])
 
 
 class AmazonPhotos:
-    def __init__(self, cookies: dict, db_path: str | Path = 'ap.parquet', tmp: str = '', **kwargs):
+    def __init__(self, cookies: dict, db_path: str | Path = 'ap.parquet', tmp: str = '', skip_folders: bool = False, **kwargs):
         self.n_threads = psutil.cpu_count(logical=True)
         self.tld = self.determine_tld(cookies)
         self.drive_url = f'https://www.amazon.{self.tld}/drive/v1'
@@ -75,9 +75,15 @@ class AmazonPhotos:
         self.tmp.mkdir(parents=True, exist_ok=True)
         self.db_path = Path(db_path).expanduser()
         self.root = self.get_root()
-        self.folders = self.get_folders()
+        
+        if not skip_folders:
+            self.folders = self.get_folders()
+            self.tree = self.build_tree()
+        else:
+            self.folders = []
+            self.tree = {}
+            
         self.db = self.load_db(**kwargs)
-        self.tree = self.build_tree()
 
     def determine_tld(self, cookies: dict) -> str:
         """
