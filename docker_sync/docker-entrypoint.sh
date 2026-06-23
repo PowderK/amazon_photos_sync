@@ -14,6 +14,28 @@ fi
 echo "[Entrypoint] Checking for cookies at ${COOKIE_FILE}..."
 
 if [ ! -f "$COOKIE_FILE" ]; then
+    if [ -n "$AMAZON_EMAIL" ] && [ -n "$AMAZON_PASSWORD" ]; then
+        echo "[Entrypoint] Found AMAZON_EMAIL and AMAZON_PASSWORD env variables. Attempting automatic login..."
+        if python -c "
+import sys, os
+sys.path.append('/app')
+from docker_sync.amazon_auth import get_amazon_cookies
+try:
+    cookies = get_amazon_cookies(os.environ.get('AMAZON_EMAIL'), os.environ.get('AMAZON_PASSWORD'), force_refresh=True)
+    if cookies and 'session-id' in cookies:
+        sys.exit(0)
+except Exception as e:
+    print(f'[Entrypoint] Auto-login error: {e}')
+sys.exit(1)
+"; then
+            echo "[Entrypoint] Automatic login successful! cookies.json saved."
+        else
+            echo "[Entrypoint] Automatic login failed (likely due to Captcha/2FA). Falling back to Web UI..."
+        fi
+    fi
+fi
+
+if [ ! -f "$COOKIE_FILE" ]; then
     echo "[Entrypoint] No cookies found. Starting Flask Login Web App on port 5000..."
     echo "[Entrypoint] Please open http://localhost:5000 in your browser to log in."
     

@@ -18,13 +18,14 @@ This fork transforms the original library into an automated, containerized **1-w
      - `--dry-run` / `-d` (env `DRY_RUN`): Simulate uploads.
      - `--extensions` / `-e` (env `SYNC_EXTENSIONS`): Restrict sync to specific file extensions (e.g. `heic jpg jpeg png`) so video files do not consume your limited Amazon Photos quota.
      - `--recursive` / `-r` (or `--no-recursive`) (env `SYNC_RECURSIVE`): Watch subdirectories recursively.
+     - `AMAZON_EMAIL` and `AMAZON_PASSWORD` (env): Optional Amazon account credentials. If provided, the container will attempt to automatically log in in headless mode on startup.
 3. **Orchestrated Docker Environment**:
    - **Headless Selenium**: Configured to run Selenium inside the container using pre-installed system Chromium and chromium-driver.
-   - **Smart Entrypoint**: When starting the container without cookies, it runs a Flask login app on port `5000`. You log in via your browser, and once `cookies.json` is saved in the `/config` volume, the container automatically shuts down the login app and boots up the folder sync watcher.
+   - **Smart Entrypoint**: Checks for credentials/cookies. If `AMAZON_EMAIL` and `AMAZON_PASSWORD` are provided, it attempts automatic headless login. If auto-login is not possible (e.g. because of Captcha/2FA) or credentials are omitted, it starts a Flask login web app on port `5000` so you can log in interactively via your browser. Once cookies are saved, it runs the folder sync watcher.
 
 ### Docker Quickstart
 
-1. Configure your directories in `docker-compose.yml`:
+1. Configure your directories and optionally your credentials in `docker-compose.yml`:
    ```yaml
    services:
      amazon-photos-sync:
@@ -36,6 +37,8 @@ This fork transforms the original library into an automated, containerized **1-w
          - DRY_RUN=false
          - SYNC_EXTENSIONS=heic jpg jpeg png
          - SYNC_RECURSIVE=true
+         - AMAZON_EMAIL=your-email@example.com
+         - AMAZON_PASSWORD=your-password
        volumes:
          - /path/to/your/photos:/watch_dir
          - ./config:/config
