@@ -32,13 +32,24 @@ def create_driver():
         
     # Add a user-agent to avoid detection
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+    
+    # Hide automation flags
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
 
     if is_docker and os.path.exists("/usr/bin/chromedriver"):
         service = Service(executable_path="/usr/bin/chromedriver")
     else:
         service = Service(ChromeDriverManager().install())
         
-    return webdriver.Chrome(service=service, options=chrome_options)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    # Bypass navigator.webdriver detection
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+    })
+    
+    return driver
 
 def get_amazon_cookies(email=None, password=None, force_refresh=False):
     """
@@ -84,7 +95,7 @@ def get_amazon_cookies(email=None, password=None, force_refresh=False):
         try:
             continue_btn = driver.find_element(By.ID, "continue")
             continue_btn.click()
-        except:
+        except Exception:
             pass
         
         # Wait for password input

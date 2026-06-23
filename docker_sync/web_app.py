@@ -13,6 +13,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from amazon_photos import AmazonPhotos
 from docker_sync.amazon_auth import get_amazon_cookies, create_driver
 
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 def shutdown_server():
     time.sleep(1.5)  # Let the response send completely
     print("[Web App] Self-terminating after successful login...")
@@ -20,10 +24,6 @@ def shutdown_server():
 
 def trigger_shutdown():
     threading.Thread(target=shutdown_server).start()
-
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_flash_messages"
