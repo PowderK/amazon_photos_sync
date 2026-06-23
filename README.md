@@ -2,6 +2,50 @@
 
 This project is a 1-way Docker-based local directory synchronization tool for Amazon Photos. It is a fork of the excellent [amazon_photos Python library](https://github.com/trevorhobenshield/amazon_photos) by [Trevor Hobenshield](https://github.com/trevorhobenshield), which we extended to support Selenium-based auto-login, EXIF taken date-based catalog matching, and a persistent SQLite upload cache database.
 
+## Fork Enhancements & Docker Deployment
+
+This fork transforms the original library into an automated, containerized **1-way directory sync service**.
+
+### Key Enhancements
+
+1. **Robust Sync Manager (`sync_manager.py`)**:
+   - **Multi-Layer Deduplication**: First checks a local SQLite cache database to instantly skip already synced files without slow hashing. Second, matches MD5 hashes. Third, falls back to matching by **File Name + EXIF Taken Date** to bypass uploads of HEIC/JPEG files that were transcoded or metadata-modified by official Amazon uploaders.
+   - **Upload Cache (`sync_cache.db`)**: Stores metadata of successfully synced files (including files that threw a `409 Conflict` because they already exist on Amazon) to skip them instantly on subsequent runs.
+2. **Automated Folder Watcher (`folder_watcher.py`)**:
+   - Uses `watchdog` to monitor a specified directory in real-time.
+   - **CLI & Environment Parameters**:
+     - `--watch-dir` / `-w` (env `WATCH_DIR`): Directory to monitor.
+     - `--dry-run` / `-d` (env `DRY_RUN`): Simulate uploads.
+     - `--extensions` / `-e` (env `SYNC_EXTENSIONS`): Restrict sync to specific file extensions (e.g. `heic jpg jpeg png`) so video files do not consume your limited Amazon Photos quota.
+     - `--recursive` / `-r` (or `--no-recursive`) (env `SYNC_RECURSIVE`): Watch subdirectories recursively.
+3. **Orchestrated Docker Environment**:
+   - **Headless Selenium**: Configured to run Selenium inside the container using pre-installed system Chromium and chromium-driver.
+   - **Smart Entrypoint**: When starting the container without cookies, it runs a Flask login app on port `5000`. You log in via your browser, and once `cookies.json` is saved in the `/config` volume, the container automatically shuts down the login app and boots up the folder sync watcher.
+
+### Docker Quickstart
+
+1. Configure your directories in `docker-compose.yml`:
+   ```yaml
+   services:
+     amazon-photos-sync:
+       build: .
+       ports:
+         - "5000:5000"
+       environment:
+         - WATCH_DIR=/watch_dir
+         - DRY_RUN=false
+         - SYNC_EXTENSIONS=heic jpg jpeg png
+         - SYNC_RECURSIVE=true
+       volumes:
+         - /path/to/your/photos:/watch_dir
+         - ./config:/config
+   ```
+2. Start the container:
+   ```bash
+   docker compose up --build -d
+   ```
+3. Open `http://localhost:5000` in your browser and complete the Amazon login. Once successful, the sync manager will automatically start in the background.
+
 ## Table of Contents
 
 <!-- TOC -->
