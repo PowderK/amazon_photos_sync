@@ -7,7 +7,7 @@ import sys
 # Add parent dir to path to import amazon_photos if needed, though pip install installed it
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from amazon_photos import AmazonPhotos
-from amazon_auth import get_amazon_cookies
+from docker_sync.amazon_auth import get_amazon_cookies
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_flash_messages"

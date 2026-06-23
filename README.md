@@ -49,6 +49,32 @@ This fork transforms the original library into an automated, containerized **1-w
    ```
 3. Open `http://localhost:5000` in your browser and complete the Amazon login. Once successful, the sync manager will automatically start in the background.
 
+### Headless Servers / unRAID / Captcha & 2FA Bypass
+
+Since Amazon has strict bot protection, logging in from a headless server (like unRAID) will often trigger a Captcha or Two-Factor Authentication (2FA) verification. Headless Selenium cannot solve these.
+
+To run the container completely autonomously:
+
+1. **Generate cookies locally on your computer**:
+   Open a terminal on your local Mac/PC in the project directory, activate your virtual environment, and run the login script:
+   ```bash
+   source venv/bin/activate
+   python docker_sync/amazon_auth.py
+   ```
+   This will open a **non-headless** Chrome browser. Log in, solve the Captcha/2FA, and let the script finish.
+   
+2. **Move cookies to your configuration folder**:
+   The script saves the cookies to `docker_sync/cookies.json`. Copy this file to your mapped `./config` directory:
+   ```bash
+   mkdir -p config
+   cp docker_sync/cookies.json config/
+   ```
+
+3. **Deploy to unRAID / Headless server**:
+   - Map the container `/config` directory to a persistent directory (e.g., `/mnt/user/appdata/amazon-photos-sync/config`).
+   - Copy your generated `cookies.json` directly into that folder on your server.
+   - Start the container. It will detect the valid cookies, bypass the login flow, and run 100% autonomously.
+
 ## Table of Contents
 
 <!-- TOC -->
