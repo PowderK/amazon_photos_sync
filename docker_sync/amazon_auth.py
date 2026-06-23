@@ -10,6 +10,36 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 import json
 
+def create_driver():
+    """
+    Creates and returns a configured Selenium WebDriver instance.
+    """
+    is_docker = os.path.exists('/.dockerenv') or os.environ.get("IS_DOCKER") == "1"
+    
+    chrome_options = Options()
+    if is_docker:
+        print("[Auth] Running inside Docker. Configuring headless Chromium...")
+        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.binary_location = "/usr/bin/chromium"
+    else:
+        # chrome_options.add_argument("--headless") # For debugging, we can run non-headless first
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        
+    # Add a user-agent to avoid detection
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+
+    if is_docker and os.path.exists("/usr/bin/chromedriver"):
+        service = Service(executable_path="/usr/bin/chromedriver")
+    else:
+        service = Service(ChromeDriverManager().install())
+        
+    return webdriver.Chrome(service=service, options=chrome_options)
+
 def get_amazon_cookies(email=None, password=None, force_refresh=False):
     """
     Logs into Amazon.de and retrieves the necessary cookies for Amazon Photos.
@@ -35,31 +65,7 @@ def get_amazon_cookies(email=None, password=None, force_refresh=False):
         raise ValueError("Amazon email and password must be provided via arguments or environment variables.")
 
     print("Initializing Selenium WebDriver...")
-    is_docker = os.path.exists('/.dockerenv') or os.environ.get("IS_DOCKER") == "1"
-    
-    chrome_options = Options()
-    if is_docker:
-        print("[Auth] Running inside Docker. Configuring headless Chromium...")
-        chrome_options.add_argument("--headless=new")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.binary_location = "/usr/bin/chromium"
-    else:
-        # chrome_options.add_argument("--headless") # For debugging, we can run non-headless first
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        
-    # Add a user-agent to avoid detection
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
-
-    if is_docker and os.path.exists("/usr/bin/chromedriver"):
-        service = Service(executable_path="/usr/bin/chromedriver")
-    else:
-        service = Service(ChromeDriverManager().install())
-        
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver = create_driver()
 
     cookies_dict = {}
 

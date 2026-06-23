@@ -13,6 +13,46 @@ fi
 
 echo "[Entrypoint] Checking for cookies at ${COOKIE_FILE}..."
 
+if [ -f "$COOKIE_FILE" ]; then
+    echo "[Entrypoint] Validating existing cookies.json..."
+    if ! python -c "
+import sys, os, json, requests
+try:
+    with open('${COOKIE_FILE}', 'r') as f:
+        cookies = json.load(f)
+    
+    headers = {
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+        'x-amzn-sessionid': cookies.get('session-id', ''),
+    }
+    
+    # Determine TLD
+    tld = 'de'
+    for k in cookies:
+        if k.endswith('_main'):
+            tld = 'com'
+            break
+        elif k.startswith('at-acb'):
+            tld = k.split('at-acb')[-1]
+            break
+            
+    r = requests.get(f'https://www.amazon.{tld}/drive/v1/account/usage', headers=headers, cookies=cookies, timeout=10)
+    if r.status_code == 401:
+        print('[Entrypoint] Existing cookies are expired (401).')
+        sys.exit(1)
+        
+    r.raise_for_status()
+    print('[Entrypoint] Cookies are valid.')
+    sys.exit(0)
+except Exception as e:
+    print(f'[Entrypoint] Cookie validation failed: {e}')
+    sys.exit(1)
+"; then
+        echo "[Entrypoint] Deleting invalid/expired cookies.json..."
+        rm -f "$COOKIE_FILE"
+    fi
+fi
+
 if [ ! -f "$COOKIE_FILE" ]; then
     if [ -n "$AMAZON_EMAIL" ] && [ -n "$AMAZON_PASSWORD" ]; then
         echo "[Entrypoint] Found AMAZON_EMAIL and AMAZON_PASSWORD env variables. Attempting automatic login..."
@@ -40,7 +80,7 @@ if [ ! -f "$COOKIE_FILE" ]; then
     echo "[Entrypoint] Please open http://localhost:5000 in your browser to log in."
     
     # Start the Flask app in the background
-    python -c "import sys; sys.path.append('/app'); from docker_sync.web_app import app; app.run(host='0.0.0.0', port=5000)" &
+    python -c "import sys; sys.path.append('/app'); from docker_sync.web_app import app; app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)" &
     WEB_APP_PID=$!
     
     echo "[Entrypoint] Web App started with PID $WEB_APP_PID. Waiting for login..."

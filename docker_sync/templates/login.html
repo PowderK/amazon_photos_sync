@@ -3,78 +3,399 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amazon Login</title>
+    <title>Amazon Photos Sync - Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --accent-color: #ff9900;
+            --accent-hover: #e68a00;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --error-bg: rgba(239, 68, 68, 0.2);
+            --error-border: rgba(239, 68, 68, 0.4);
+            --success-bg: rgba(16, 185, 129, 0.2);
+            --success-border: rgba(16, 185, 129, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
-            max-width: 400px;
-            margin: 50px auto;
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(255, 153, 0, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(15, 23, 42, 0.8) 0px, transparent 50%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 480px;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo-text {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-text span {
+            color: var(--accent-color);
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        /* Tabs styling */
+        .tabs {
+            display: flex;
+            background: rgba(15, 23, 42, 0.5);
+            padding: 4px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 10px;
+            font-size: 14px;
+            font-weight: 500;
             border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            background: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
-        h1 {
-            color: #ff9900;
+
+        .tab-btn.active {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 1px solid var(--border-color);
         }
-        form {
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: slideIn 0.4s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Forms and Inputs */
+        .form-group {
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            margin-top: 20px;
+            gap: 8px;
+            margin-bottom: 20px;
         }
-        input[type="email"], input[type="password"] {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+
+        label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        button {
-            background-color: #ff9900;
-            color: white;
+
+        input, textarea {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.15);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        /* Buttons */
+        .btn {
+            background: var(--accent-color);
+            color: #000;
+            font-weight: 600;
             border: none;
-            padding: 10px 15px;
-            font-size: 16px;
-            border-radius: 4px;
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 15px;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
         }
-        button:hover {
-            background-color: #e68a00;
+
+        .btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(255, 153, 0, 0.2);
         }
-        .flash-messages {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #e1f5fe;
-            border-left: 5px solid #03a9f4;
-            list-style: none;
+
+        .btn:active {
+            transform: translateY(0);
         }
-        .flash-messages li {
-            margin-bottom: 5px;
+
+        /* Statuses & Screenshots */
+        .screenshot-container {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            background: #000;
+            max-height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .screenshot-container img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .alert-error {
+            background: var(--error-bg);
+            border: 1px solid var(--error-border);
+            color: #fca5a5;
+        }
+
+        .alert-success {
+            background: var(--success-bg);
+            border: 1px solid var(--success-border);
+            color: #6ee7b7;
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #93c5fd;
+        }
+
+        .loader {
+            border: 2.5px solid rgba(255, 255, 255, 0.2);
+            border-top: 2.5px solid #000;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
 
-    <h1>Amazon Login</h1>
-    <p>Bitte logge dich mit deinem Amazon-Konto ein, um den Uploader zu nutzen.</p>
+    <div class="container">
+        <div class="header">
+            <div class="logo-text">Amazon Photos <span>Sync</span></div>
+            <div class="subtitle">Initialisiere deine Fotosynchronisierung</div>
+        </div>
 
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <ul class="flash-messages">
-        {% for message in messages %}
-          <li>{{ message }}</li>
-        {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-error">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
 
-    <form method="POST">
-        <input type="email" name="email" placeholder="E-Mail" required>
-        <input type="password" name="password" placeholder="Passwort" required>
-        <button type="submit">Einloggen</button>
-    </form>
+        {% if session.error %}
+          <div class="alert alert-error">{{ session.error }}</div>
+        {% endif %}
 
+        <!-- Interactive states (Captcha / OTP / Failures) -->
+        {% if session.status == 'need_captcha' %}
+            <div class="alert alert-info">Amazon verlangt eine Captcha-Verifizierung. Bitte gib den Code aus dem Bild unten ein.</div>
+            
+            {% if session.screenshot %}
+            <div class="screenshot-container">
+                <img src="data:image/png;base64,{{ session.screenshot }}" alt="Amazon Screenshot">
+            </div>
+            {% endif %}
+
+            <form method="POST" id="form-captcha">
+                <input type="hidden" name="action" value="submit_captcha">
+                <div class="form-group">
+                    <label for="captcha_code">Captcha Code</label>
+                    <input type="text" id="captcha_code" name="captcha_code" placeholder="Captcha-Code eingeben" required autocomplete="off" autofocus>
+                </div>
+                <button type="submit" class="btn" id="btn-submit-captcha">
+                    <span class="btn-text">Verifizieren</span>
+                </button>
+            </form>
+
+        {% elif session.status == 'need_otp' %}
+            <div class="alert alert-info">Amazon verlangt eine Zwei-Faktor-Authentifizierung (MFA/OTP). Bitte gib den erhaltenen Code ein.</div>
+
+            {% if session.screenshot %}
+            <div class="screenshot-container">
+                <img src="data:image/png;base64,{{ session.screenshot }}" alt="Amazon Screenshot">
+            </div>
+            {% endif %}
+
+            <form method="POST" id="form-otp">
+                <input type="hidden" name="action" value="submit_otp">
+                <div class="form-group">
+                    <label for="otp_code">MFA / OTP Code</label>
+                    <input type="text" id="otp_code" name="otp_code" placeholder="Zwei-Faktor-Code eingeben" required autocomplete="off" autofocus>
+                </div>
+                <button type="submit" class="btn" id="btn-submit-otp">
+                    <span class="btn-text">Code abschicken</span>
+                </button>
+            </form>
+
+        {% else %}
+            <!-- Normal setup tabs -->
+            <div class="tabs">
+                <button type="button" class="tab-btn active" id="tab-credentials" onclick="switchTab('credentials')">Login</button>
+                <button type="button" class="tab-btn" id="tab-cookies" onclick="switchTab('cookies')">Cookie-Import</button>
+            </div>
+
+            <!-- Tab 1: Email & Password -->
+            <div id="content-credentials" class="tab-content active">
+                <form method="POST" id="form-credentials" onsubmit="showLoading('btn-login')">
+                    <input type="hidden" name="action" value="submit_credentials">
+                    <div class="form-group">
+                        <label for="email">E-Mail Adresse</label>
+                        <input type="email" id="email" name="email" placeholder="beispiel@domain.de" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Amazon Passwort</label>
+                        <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn" id="btn-login">
+                        <span class="btn-text">Anmelden & Verbinden</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Tab 2: Direct Cookie Paste -->
+            <div id="content-cookies" class="tab-content">
+                <div class="alert alert-info" style="font-size:12px; margin-bottom:15px;">
+                    Du kannst deine Cookies im JSON-Format einfügen (z.B. exportiert mit Browser-Extensions wie "EditThisCookie"). Benötigt werden: <code>session-id</code>, <code>ubid-acbde</code>, <code>at-acbde</code>.
+                </div>
+                <form method="POST" id="form-cookies">
+                    <input type="hidden" name="action" value="import_cookies">
+                    <div class="form-group">
+                        <label for="cookies_json">Cookie JSON</label>
+                        <textarea id="cookies_json" name="cookies_json" placeholder='[{"name": "session-id", "value": "..."}, ...]' required></textarea>
+                    </div>
+                    <button type="submit" class="btn" id="btn-import-cookies">
+                        <span class="btn-text">Cookies speichern</span>
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            document.getElementById('tab-' + tabId).classList.add('active');
+            document.getElementById('content-' + tabId).classList.add('active');
+        }
+
+        function showLoading(buttonId) {
+            const btn = document.getElementById(buttonId);
+            if (!btn) return;
+            
+            const textSpan = btn.querySelector('.btn-text');
+            if (textSpan) {
+                textSpan.style.display = 'none';
+            }
+            
+            const spinner = document.createElement('div');
+            spinner.className = 'loader';
+            btn.appendChild(spinner);
+            btn.disabled = true;
+        }
+
+        // Auto loading indicator on captcha/otp forms submit
+        ['form-captcha', 'form-otp'].forEach(formId => {
+            const form = document.getElementById(formId);
+            if (form) {
+                form.addEventListener('submit', () => {
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        showLoading(submitBtn.id);
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
