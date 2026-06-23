@@ -99,42 +99,47 @@ def evaluate_page_state(driver):
             # Pre-initialize client
             ap_client = AmazonPhotos(cookies=cookies_dict, skip_folders=True)
             
-            try: driver.quit()
-            except: pass
+            try:
+                driver.quit()
+            except Exception:
+                pass
             selenium_session['driver'] = None
             selenium_session['status'] = 'success'
+            flash("Erfolgreich eingeloggt!")
             return redirect(url_for("index"))
 
     # Check for OTP page
     try:
-        otp_field = driver.find_element(By.ID, "auth-mfa-otpcode")
+        driver.find_element(By.ID, "auth-mfa-otpcode")
         selenium_session['status'] = 'need_otp'
         selenium_session['screenshot'] = driver.get_screenshot_as_base64()
         return render_template("login.html", session=selenium_session)
-    except:
+    except Exception:
         pass
 
     # Check for Captcha
     try:
-        captcha_img = driver.find_element(By.ID, "auth-captcha-image")
+        driver.find_element(By.ID, "auth-captcha-image")
         selenium_session['status'] = 'need_captcha'
         selenium_session['screenshot'] = driver.get_screenshot_as_base64()
         return render_template("login.html", session=selenium_session)
-    except:
+    except Exception:
         pass
 
     # Check for general login error
     try:
         error_box = driver.find_element(By.ID, "auth-error-message-box")
         selenium_session['error'] = error_box.text
-    except:
+    except Exception:
         selenium_session['error'] = None
 
     # Default fallback: stay on page or show error screenshot
     selenium_session['status'] = 'failed'
     selenium_session['screenshot'] = driver.get_screenshot_as_base64()
-    try: driver.quit()
-    except: pass
+    try:
+        driver.quit()
+    except Exception:
+        pass
     selenium_session['driver'] = None
     return render_template("login.html", session=selenium_session)
 
@@ -145,8 +150,10 @@ def login():
     if request.method == "GET":
         # Reset any stale driver
         if selenium_session['driver']:
-            try: selenium_session['driver'].quit()
-            except: pass
+            try:
+                selenium_session['driver'].quit()
+            except Exception:
+                pass
             selenium_session['driver'] = None
         selenium_session['status'] = 'idle'
         selenium_session['screenshot'] = None
@@ -189,7 +196,7 @@ def login():
             
             try:
                 driver.find_element(By.ID, "continue").click()
-            except:
+            except Exception:
                 pass
                 
             # Step 2: Input Password (wait until visible)
@@ -207,8 +214,10 @@ def login():
             
         except Exception as e:
             flash(f"Fehler bei der Initialisierung: {e}")
-            try: driver.quit()
-            except: pass
+            try:
+                driver.quit()
+            except Exception:
+                pass
             selenium_session['driver'] = None
             return redirect(url_for("login"))
             
@@ -231,7 +240,7 @@ def login():
                 if selenium_session['password']:
                     password_input.clear()
                     password_input.send_keys(selenium_session['password'])
-            except:
+            except Exception:
                 pass
                 
             driver.find_element(By.ID, "signInSubmit").click()
@@ -240,8 +249,10 @@ def login():
             return evaluate_page_state(driver)
         except Exception as e:
             flash(f"Fehler beim Übermitteln des Captchas: {e}")
-            try: driver.quit()
-            except: pass
+            try:
+                driver.quit()
+            except Exception:
+                pass
             selenium_session['driver'] = None
             return redirect(url_for("login"))
             
@@ -261,16 +272,21 @@ def login():
             # Submit OTP
             try:
                 driver.find_element(By.ID, "auth-signin-button").click()
-            except:
-                driver.find_element(By.ID, "signInSubmit").click()
+            except Exception:
+                try:
+                    driver.find_element(By.ID, "signInSubmit").click()
+                except Exception:
+                    pass
                 
             time.sleep(5)
             
             return evaluate_page_state(driver)
         except Exception as e:
             flash(f"Fehler beim Übermitteln des OTPs: {e}")
-            try: driver.quit()
-            except: pass
+            try:
+                driver.quit()
+            except Exception:
+                pass
             selenium_session['driver'] = None
             return redirect(url_for("login"))
 
