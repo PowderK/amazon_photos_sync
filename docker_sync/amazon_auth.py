@@ -35,14 +35,19 @@ def create_driver():
     
     # Hide automation flags
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--lang=de-DE")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
+    chrome_options.add_experimental_option('prefs', {'intl.accept_languages': 'de-DE,de'})
 
     if is_docker and os.path.exists("/usr/bin/chromedriver"):
         service = Service(executable_path="/usr/bin/chromedriver")
     else:
         service = Service(ChromeDriverManager().install())
         
+    chrome_options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
+    
     driver = webdriver.Chrome(service=service, options=chrome_options)
     
     # Bypass navigator.webdriver detection

@@ -94,8 +94,14 @@ def evaluate_page_state(driver):
         print(f"[Web UI Login] Page Title: {driver.title}")
         body_text = driver.find_element(By.TAG_NAME, "body").text
         print(f"[Web UI Login] Page text snippet: {body_text[:500].replace(chr(10), ' | ')}")
+        
+        # Read browser console logs
+        log_entries = driver.get_log("browser")
+        print(f"[Web UI Login] Browser Console Logs (count: {len(log_entries)}):")
+        for entry in log_entries:
+            print(f"[Browser Console] {entry['level']}: {entry['message']}")
     except Exception as e:
-        print(f"[Web UI Login] Could not read page text/title: {e}")
+        print(f"[Web UI Login] Could not read page text/title/logs: {e}")
     
     # Check if redirect to photos/drive was successful
     if "amazon.de/photos" in current_url or "amazon.de/drive" in current_url:
@@ -251,9 +257,16 @@ def login():
             print("[Web UI Login] Password entered.")
             
             # Submit Credentials
-            print("[Web UI Login] Clicking 'signInSubmit' button...")
-            driver.find_element(By.ID, "signInSubmit").click()
-            print("[Web UI Login] Clicked 'signInSubmit' button. Waiting 5s...")
+            print("[Web UI Login] Submitting password form...")
+            try:
+                password_input.submit()
+                print("[Web UI Login] Form submitted via password_input.submit().")
+            except Exception as e:
+                print(f"[Web UI Login] Form submit failed, trying button click: {e}")
+                driver.find_element(By.ID, "signInSubmit").click()
+                print("[Web UI Login] Clicked 'signInSubmit' button.")
+            
+            print("[Web UI Login] Waiting 5s for page transition...")
             time.sleep(5)
             
             print(f"[Web UI Login] After sign-in submit, Current URL: {driver.current_url}, Title: {driver.title}")
