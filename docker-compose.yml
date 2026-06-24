@@ -1,6 +1,7 @@
 services:
   selenium:
     image: selenium/standalone-chrome:latest
+    platform: linux/amd64
     container_name: amazon-photos-selenium
     shm_size: 2gb
     ports:
