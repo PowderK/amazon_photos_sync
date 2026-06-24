@@ -15,45 +15,45 @@ def create_driver():
     Creates and returns a configured Selenium WebDriver instance.
     """
     is_docker = os.path.exists('/.dockerenv') or os.environ.get("IS_DOCKER") == "1"
+    selenium_url = os.environ.get("SELENIUM_URL")
     
     chrome_options = Options()
-    if is_docker:
-        print("[Auth] Running inside Docker. Configuring headless Chromium...")
-        chrome_options.add_argument("--headless=new")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.binary_location = "/usr/bin/chromium"
-    else:
-        # chrome_options.add_argument("--headless") # For debugging, we can run non-headless first
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        
-    # Add a user-agent to avoid detection
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
     
-    # Hide automation flags
+    # Generic options
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_argument("--window-size=1920,1080")
     chrome_options.add_argument("--lang=de-DE")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
     chrome_options.add_experimental_option('prefs', {'intl.accept_languages': 'de-DE,de'})
-
-    if is_docker and os.path.exists("/usr/bin/chromedriver"):
-        service = Service(executable_path="/usr/bin/chromedriver")
-    else:
-        service = Service(ChromeDriverManager().install())
-        
     chrome_options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
-    
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+
+    if selenium_url:
+        print(f"[Auth] Connecting to remote Selenium WebDriver at {selenium_url}...")
+        driver = webdriver.Remote(command_executor=selenium_url, options=chrome_options)
+    else:
+        print("[Auth] Creating local Selenium WebDriver...")
+        if is_docker:
+            print("[Auth] Configuring local headless Chromium inside Docker...")
+            chrome_options.add_argument("--headless=new")
+            chrome_options.binary_location = "/usr/bin/chromium"
+            service = Service(executable_path="/usr/bin/chromedriver")
+        else:
+            service = Service(ChromeDriverManager().install())
+            
+        driver = webdriver.Chrome(service=service, options=chrome_options)
     
     # Bypass navigator.webdriver detection
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-        "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-    })
+    try:
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        })
+    except (AttributeError, Exception):
+        pass
     
     return driver
 
