@@ -208,21 +208,28 @@ def login():
         selenium_session['driver'] = driver
         
         try:
+            print("[Web UI Login] Navigating to Amazon sign-in URL...")
             driver.get("https://www.amazon.de/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.de%2Fphotos&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=amzn_photos_web_de&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0")
+            print(f"[Web UI Login] Opened URL: {driver.current_url}")
             
             # Step 1: Input Email
+            print("[Web UI Login] Waiting for email field (ap_email)...")
             email_input = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.ID, "ap_email"))
             )
             email_input.clear()
             email_input.send_keys(email)
+            print("[Web UI Login] Email entered.")
             
             try:
-                driver.find_element(By.ID, "continue").click()
-            except Exception:
-                pass
+                continue_btn = driver.find_element(By.ID, "continue")
+                continue_btn.click()
+                print("[Web UI Login] Clicked 'continue' button.")
+            except Exception as e:
+                print(f"[Web UI Login] 'continue' button click failed (same page layout?): {e}")
                 
             time.sleep(3) # Wait for page transition
+            print(f"[Web UI Login] After E-Mail/Continue step, Current URL: {driver.current_url}, Title: {driver.title}")
             
             # Check if a Captcha image exists on the page immediately after clicking continue (Email-page Captcha)
             try:
@@ -235,16 +242,21 @@ def login():
                 pass
                 
             # Step 2: Input Password (wait until visible)
+            print("[Web UI Login] Waiting for password field (ap_password)...")
             password_input = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.ID, "ap_password"))
             )
             password_input.clear()
             password_input.send_keys(password)
+            print("[Web UI Login] Password entered.")
             
             # Submit Credentials
+            print("[Web UI Login] Clicking 'signInSubmit' button...")
             driver.find_element(By.ID, "signInSubmit").click()
+            print("[Web UI Login] Clicked 'signInSubmit' button. Waiting 5s...")
             time.sleep(5)
             
+            print(f"[Web UI Login] After sign-in submit, Current URL: {driver.current_url}, Title: {driver.title}")
             return evaluate_page_state(driver)
             
         except Exception as e:
