@@ -225,12 +225,18 @@ def login():
             )
             email_input.clear()
             email_input.send_keys(email)
+            driver.execute_script("""
+                var el = arguments[0];
+                el.value = arguments[1];
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            """, email_input, email)
             print("[Web UI Login] Email entered.")
             
             try:
                 continue_btn = driver.find_element(By.ID, "continue")
-                continue_btn.click()
-                print("[Web UI Login] Clicked 'continue' button.")
+                driver.execute_script("arguments[0].click();", continue_btn)
+                print("[Web UI Login] Clicked 'continue' button via JS.")
             except Exception as e:
                 print(f"[Web UI Login] 'continue' button click failed (same page layout?): {e}")
                 
@@ -254,17 +260,23 @@ def login():
             )
             password_input.clear()
             password_input.send_keys(password)
+            driver.execute_script("""
+                var el = arguments[0];
+                el.value = arguments[1];
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            """, password_input, password)
             print("[Web UI Login] Password entered.")
             
             # Submit Credentials
-            print("[Web UI Login] Submitting password form...")
+            print("[Web UI Login] Submitting password form via JS click...")
             try:
-                password_input.submit()
-                print("[Web UI Login] Form submitted via password_input.submit().")
+                submit_btn = driver.find_element(By.ID, "signInSubmit")
+                driver.execute_script("arguments[0].click();", submit_btn)
+                print("[Web UI Login] Clicked 'signInSubmit' button via JS.")
             except Exception as e:
-                print(f"[Web UI Login] Form submit failed, trying button click: {e}")
-                driver.find_element(By.ID, "signInSubmit").click()
-                print("[Web UI Login] Clicked 'signInSubmit' button.")
+                print(f"[Web UI Login] JS submit click failed, trying password_input.submit(): {e}")
+                password_input.submit()
             
             print("[Web UI Login] Waiting 5s for page transition...")
             time.sleep(5)
