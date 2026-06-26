@@ -203,37 +203,6 @@ def login():
             flash("Fehler: Ungültiges Cookie-Format. Bitte überprüfe die Daten.")
             return redirect(url_for("login"))
             
-    # 2. Option C: Start Interactive VNC Login
-    elif action == "start_interactive":
-        # Reset any stale driver
-        if selenium_session['driver']:
-            try:
-                selenium_session['driver'].quit()
-            except Exception:
-                pass
-            selenium_session['driver'] = None
-            
-        print("[Web UI Login] Starting interactive Selenium VNC flow...")
-        try:
-            driver = create_driver()
-            selenium_session['driver'] = driver
-            selenium_session['status'] = 'waiting_vnc'
-            
-            # Navigate to Amazon login page
-            driver.get("https://www.amazon.de/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.de%2Fphotos&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=amzn_photos_web_de&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0")
-            print(f"[Web UI Login] Interactive browser session navigated to: {driver.current_url}")
-            return render_template("login.html", session=selenium_session)
-        except Exception as e:
-            print(f"[Web UI Login] Error starting interactive session: {e}")
-            selenium_session['status'] = 'failed'
-            selenium_session['error'] = f"Konnte interaktive Sitzung nicht starten: {e}"
-            if selenium_session['driver']:
-                try:
-                    selenium_session['driver'].quit()
-                except Exception:
-                    pass
-                selenium_session['driver'] = None
-            return render_template("login.html", session=selenium_session)
     # 2. Option A: Initial email/password submit
     elif action == "submit_credentials":
         email = request.form.get("email")
@@ -249,10 +218,10 @@ def login():
             driver.get("https://www.amazon.de/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.de%2Fphotos&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=amzn_photos_web_de&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0")
             print(f"[Web UI Login] Opened URL: {driver.current_url}")
             
-            # Step 1: Input Email
-            print("[Web UI Login] Waiting for email field (ap_email)...")
+            # Step 1: Input Email (using XPath)
+            print("[Web UI Login] Waiting for email field (XPATH: //input[@id='ap_email'])...")
             email_input = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, "ap_email"))
+                EC.presence_of_element_located((By.XPATH, '//input[@id="ap_email"]'))
             )
             email_input.clear()
             email_input.send_keys(email)
@@ -265,7 +234,7 @@ def login():
             print("[Web UI Login] Email entered.")
             
             try:
-                continue_btn = driver.find_element(By.ID, "continue")
+                continue_btn = driver.find_element(By.XPATH, '//input[@id="continue"]')
                 driver.execute_script("arguments[0].click();", continue_btn)
                 print("[Web UI Login] Clicked 'continue' button via JS.")
             except Exception as e:
@@ -276,7 +245,7 @@ def login():
             
             # Check if a Captcha image exists on the page immediately after clicking continue (Email-page Captcha)
             try:
-                driver.find_element(By.ID, "auth-captcha-image")
+                driver.find_element(By.XPATH, '//img[@id="auth-captcha-image"]')
                 print("[Web UI Login] Captcha triggered on Email page.")
                 selenium_session['status'] = 'need_captcha'
                 selenium_session['screenshot'] = driver.get_screenshot_as_base64()
@@ -284,10 +253,10 @@ def login():
             except Exception:
                 pass
                 
-            # Step 2: Input Password (wait until visible)
-            print("[Web UI Login] Waiting for password field (ap_password)...")
+            # Step 2: Input Password (using XPath, wait until visible)
+            print("[Web UI Login] Waiting for password field (XPATH: //input[@id='ap_password'])...")
             password_input = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, "ap_password"))
+                EC.presence_of_element_located((By.XPATH, '//input[@id="ap_password"]'))
             )
             password_input.clear()
             password_input.send_keys(password)
@@ -302,7 +271,7 @@ def login():
             # Submit Credentials
             print("[Web UI Login] Submitting password form via JS click...")
             try:
-                submit_btn = driver.find_element(By.ID, "signInSubmit")
+                submit_btn = driver.find_element(By.XPATH, '//input[@id="signInSubmit"]')
                 driver.execute_script("arguments[0].click();", submit_btn)
                 print("[Web UI Login] Clicked 'signInSubmit' button via JS.")
             except Exception as e:
@@ -449,45 +418,6 @@ def login():
             return render_template("login.html", session=selenium_session)
 
     return render_template("login.html", session=selenium_session)
-
-@app.route("/login/status")
-def login_status():
-    global selenium_session, ap_client
-    driver = selenium_session['driver']
-    if not driver:
-        return json.dumps({'status': selenium_session['status']})
-    
-    try:
-        current_url = driver.current_url
-        if "amazon.de/photos" in current_url or "amazon.de/drive" in current_url:
-            # Successfully logged in!
-            cookies_dict = {}
-            cookies = driver.get_cookies()
-            for cookie in cookies:
-                if cookie['name'] in ['at-acbde', 'ubid-acbde', 'session-id']:
-                    cookies_dict[cookie['name']] = cookie['value']
-            
-            if cookies_dict.get('session-id') and cookies_dict.get('at-acbde'):
-                config_dir = "/config" if os.path.exists("/config") else os.path.dirname(__file__)
-                cookie_file = os.path.join(config_dir, "cookies.json")
-                with open(cookie_file, "w") as f:
-                    json.dump(cookies_dict, f)
-                print("[Web UI Login] Cookies successfully saved from interactive VNC session.")
-                
-                ap_client = AmazonPhotos(cookies=cookies_dict, skip_folders=True)
-                
-                try:
-                    driver.quit()
-                except Exception:
-                    pass
-                selenium_session['driver'] = None
-                selenium_session['status'] = 'success'
-                trigger_shutdown()
-                return json.dumps({'status': 'success'})
-    except Exception as e:
-        print(f"[Web UI Login] Error checking VNC status: {e}")
-        
-    return json.dumps({'status': selenium_session['status']})
 
 @app.route("/", methods=["GET", "POST"])
 def index():

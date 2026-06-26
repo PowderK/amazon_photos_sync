@@ -321,41 +321,6 @@
                     <span class="btn-text">Code abschicken</span>
                 </button>
             </form>
-        {% elif session.status == 'waiting_vnc' %}
-            <div class="alert alert-info">
-                <strong>Interaktiver Browser gestartet!</strong><br>
-                Bitte öffne die folgende Adresse in einem neuen Tab, um dich direkt bei Amazon einzuloggen:<br><br>
-                <a href="http://localhost:7900" target="_blank" style="color: var(--accent-color); font-weight: bold; text-decoration: underline;">http://localhost:7900</a><br><br>
-                <em>(Falls nach einem Passwort gefragt wird: <strong>secret</strong>)</em>
-            </div>
-            
-            <div class="alert alert-success" style="animation: pulse 2s infinite; text-align: center;">
-                Warte auf erfolgreiche Anmeldung... Sobald du deine Fotos auf Amazon siehst, geht es hier automatisch weiter.
-            </div>
-
-            <form method="POST" id="form-action">
-                <input type="hidden" name="action" value="check_status">
-                <button type="submit" class="btn" id="btn-submit-action">
-                    <span class="btn-text">Status manuell prüfen</span>
-                </button>
-            </form>
-            
-            <a href="/login" class="btn" style="text-decoration: none; margin-top: 10px; background: rgba(255, 255, 255, 0.1); color: var(--text-primary);">Abbrechen und neu starten</a>
-            
-            <script>
-                // Auto check status every 2 seconds
-                setInterval(function() {
-                    fetch('/login/status')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'success') {
-                                window.location.href = '/';
-                            }
-                        })
-                        .catch(err => console.log("Status check failed", err));
-                }, 2000);
-            </script>
-
         {% elif session.status == 'need_action' %}
             <div class="alert alert-info">
                 <strong>Zusätzliche Freigabe erforderlich.</strong><br>
@@ -399,26 +364,12 @@
         {% else %}
             <!-- Normal setup tabs -->
             <div class="tabs">
-                <button type="button" class="tab-btn active" id="tab-interactive" onclick="switchTab('interactive')">Interaktiv (Empfohlen)</button>
-                <button type="button" class="tab-btn" id="tab-credentials" onclick="switchTab('credentials')">Auto-Login (Schnittstelle)</button>
+                <button type="button" class="tab-btn active" id="tab-credentials" onclick="switchTab('credentials')">Login</button>
                 <button type="button" class="tab-btn" id="tab-cookies" onclick="switchTab('cookies')">Cookie-Import</button>
             </div>
 
-            <!-- Tab 1: Interactive VNC Login -->
-            <div id="content-interactive" class="tab-content active">
-                <div class="alert alert-info" style="font-size:13px; margin-bottom:15px;">
-                    Startet ein echtes Browserfenster auf dem Server. Du kannst dich dort wie an deinem eigenen PC direkt bei Amazon einloggen, Captchas lösen und OTPs eingeben.
-                </div>
-                <form method="POST" id="form-interactive" onsubmit="showLoading('btn-start-interactive')">
-                    <input type="hidden" name="action" value="start_interactive">
-                    <button type="submit" class="btn" id="btn-start-interactive">
-                        <span class="btn-text">Interaktiven Login im Browser starten</span>
-                    </button>
-                </form>
-            </div>
-
-            <!-- Tab 2: Email & Password -->
-            <div id="content-credentials" class="tab-content">
+            <!-- Tab 1: Email & Password -->
+            <div id="content-credentials" class="tab-content active">
                 <form method="POST" id="form-credentials" onsubmit="showLoading('btn-login')">
                     <input type="hidden" name="action" value="submit_credentials">
                     <div class="form-group">
@@ -435,7 +386,7 @@
                 </form>
             </div>
 
-            <!-- Tab 3: Direct Cookie Paste -->
+            <!-- Tab 2: Direct Cookie Paste -->
             <div id="content-cookies" class="tab-content">
                 <div class="alert alert-info" style="font-size:12px; margin-bottom:15px;">
                     Du kannst deine Cookies im JSON-Format einfügen (z.B. exportiert mit Browser-Extensions wie "EditThisCookie"). Benötigt werden: <code>session-id</code>, <code>ubid-acbde</code>, <code>at-acbde</code>.
@@ -479,7 +430,7 @@
         }
 
         // Auto loading indicator on captcha/otp/action forms submit
-        ['form-captcha', 'form-otp', 'form-action', 'form-interactive', 'form-action-need'].forEach(formId => {
+        ['form-captcha', 'form-otp', 'form-action', 'form-action-need'].forEach(formId => {
             const form = document.getElementById(formId);
             if (form) {
                 form.addEventListener('submit', () => {

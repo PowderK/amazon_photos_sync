@@ -15,7 +15,6 @@ def create_driver():
     Creates and returns a configured Selenium WebDriver instance.
     """
     is_docker = os.path.exists('/.dockerenv') or os.environ.get("IS_DOCKER") == "1"
-    selenium_url = os.environ.get("SELENIUM_URL")
     
     chrome_options = Options()
     
@@ -32,20 +31,16 @@ def create_driver():
     chrome_options.add_experimental_option('prefs', {'intl.accept_languages': 'de-DE,de'})
     chrome_options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
 
-    if selenium_url:
-        print(f"[Auth] Connecting to remote Selenium WebDriver at {selenium_url}...")
-        driver = webdriver.Remote(command_executor=selenium_url, options=chrome_options)
+    print("[Auth] Creating local Selenium WebDriver...")
+    if is_docker:
+        print("[Auth] Configuring local headless Chromium inside Docker...")
+        chrome_options.add_argument("--headless=new")
+        chrome_options.binary_location = "/usr/bin/chromium"
+        service = Service(executable_path="/usr/bin/chromedriver")
     else:
-        print("[Auth] Creating local Selenium WebDriver...")
-        if is_docker:
-            print("[Auth] Configuring local headless Chromium inside Docker...")
-            chrome_options.add_argument("--headless=new")
-            chrome_options.binary_location = "/usr/bin/chromium"
-            service = Service(executable_path="/usr/bin/chromedriver")
-        else:
-            service = Service(ChromeDriverManager().install())
-            
-        driver = webdriver.Chrome(service=service, options=chrome_options)
+        service = Service(ChromeDriverManager().install())
+        
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     
     # Bypass navigator.webdriver detection
     try:

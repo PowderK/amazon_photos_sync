@@ -1,27 +1,17 @@
 services:
-  selenium:
-    image: selenium/standalone-chrome:latest
-    platform: linux/amd64
-    container_name: amazon-photos-selenium
-    shm_size: 2gb
-    ports:
-      - "7900:7900"
-    restart: unless-stopped
-
   amazon-photos-sync:
     build: .
     container_name: amazon-photos-sync
     restart: unless-stopped
     ports:
       - "5001:5000"
-    depends_on:
-      - selenium
     environment:
       - WATCH_DIR=/watch_dir
       - DRY_RUN=false
       - SYNC_EXTENSIONS=heic jpg jpeg png
       - SYNC_RECURSIVE=true
-      - SELENIUM_URL=http://selenium:4444/wd/hub
+      - AMAZON_EMAIL=b.kreitz@mail.de
+      - AMAZON_PASSWORD=Wb2010eYH!an
     volumes:
       # Mount point for local photos directory to sync (Change this to your actual photos directory path)
       - ./sync_test_folder:/watch_dir
