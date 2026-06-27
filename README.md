@@ -18,10 +18,10 @@ This fork transforms the original library into an automated, containerized **1-w
      - `--dry-run` / `-d` (env `DRY_RUN`): Simulate uploads.
      - `--extensions` / `-e` (env `SYNC_EXTENSIONS`): Restrict sync to specific file extensions (e.g. `heic jpg jpeg png`) so video files do not consume your limited Amazon Photos quota.
      - `--recursive` / `-r` (or `--no-recursive`) (env `SYNC_RECURSIVE`): Watch subdirectories recursively.
-     - `AMAZON_EMAIL` and `AMAZON_PASSWORD` (env): Optional Amazon account credentials. If provided, the container will attempt to automatically log in in headless mode on startup.
 3. **Orchestrated Docker Environment**:
-   - **Headless Selenium**: Configured to run Selenium inside the container using pre-installed system Chromium and chromium-driver.
-   - **Smart Entrypoint**: Checks for credentials/cookies. If `AMAZON_EMAIL` and `AMAZON_PASSWORD` are provided, it attempts automatic headless login. If auto-login is not possible (e.g. because of Captcha/2FA) or credentials are omitted, it starts a Flask login web app on port `5000` so you can log in interactively via your browser. Once cookies are saved, it runs the folder sync watcher.
+   - **Headless Selenium**: Runs Selenium inside the container using pre-installed system Chromium and chromium-driver.
+   - **Smart Entrypoint**: Checks for cookies. If `AMAZON_EMAIL` and `AMAZON_PASSWORD` are provided, it attempts automatic headless login on startup.
+   - **Flask Login Web UI**: If no cookies are found (or if automatic login fails due to Captcha/MFA), it starts a Flask web app on port `5000` (mapped to `5001` on host). Here you can log in interactively. It displays screenshots of the headless browser to guide you through MFA/OTP prompts and device approvals (e.g. push confirmation links).
 
 ### Docker Quickstart
 
@@ -30,8 +30,10 @@ This fork transforms the original library into an automated, containerized **1-w
    services:
      amazon-photos-sync:
        build: .
+       container_name: amazon-photos-sync
+       restart: unless-stopped
        ports:
-         - "5000:5000"
+         - "5001:5000"
        environment:
          - WATCH_DIR=/watch_dir
          - DRY_RUN=false
@@ -47,33 +49,60 @@ This fork transforms the original library into an automated, containerized **1-w
    ```bash
    docker compose up --build -d
    ```
-3. Open `http://localhost:5000` in your browser and complete the Amazon login. Once successful, the sync manager will automatically start in the background.
+3. Open `http://localhost:5001` in your browser.
+   - If Amazon prompts for a Captcha or MFA/OTP code, the Web UI will display the browser screenshot and input fields to submit them.
+   - If Amazon requires a mobile app push confirmation or email link approval, the Web UI will guide you. Approve it on your device and click **"Ich habe die Freigabe erteilt / Status aktualisieren"**.
+   - Once successful, the sync manager automatically starts in the background.
 
-### Headless Servers / unRAID / Captcha & 2FA Bypass
+---
 
-Since Amazon has strict bot protection, logging in from a headless server (like unRAID) will often trigger a Captcha or Two-Factor Authentication (2FA) verification. Headless Selenium cannot solve these.
+## Deutsche Version (German Guide)
 
-To run the container completely autonomously:
+Dieses Projekt ist ein Docker-basierter **Einweg-Synchronisierungs-Dienst** für Amazon Photos. Er überwacht ein lokales Verzeichnis und lädt neue Bilder automatisch im Hintergrund hoch.
 
-1. **Generate cookies locally on your computer**:
-   Open a terminal on your local Mac/PC in the project directory, activate your virtual environment, and run the login script:
-   ```bash
-   source venv/bin/activate
-   python docker_sync/amazon_auth.py
+### Besonderheiten dieser Version:
+* **Keine Duplikate**: Vor dem Upload wird geprüft, ob das Bild bereits bei Amazon vorhanden ist. Der Abgleich erfolgt über eine lokale SQLite-Datenbank (`sync_cache.db`), MD5-Hashes und das **Aufnahmedatum (EXIF)**.
+* **Ausschluss von Videos**: Um deinen Speicherplatz zu schonen, kannst du den Upload auf bestimmte Formate einschränken (z. B. `heic jpg jpeg png`).
+* **Intelligenter Login (Web-Interface)**: Da Amazon oft Sicherheitsabfragen (Captchas, 2FA, Freigabe-Links) fordert, stellt der Container bei der Ersteinrichtung eine einfache Weboberfläche bereit.
+
+### Schnellstart mit Docker
+
+1. Passe die `docker-compose.yml` an deine Pfade an:
+   ```yaml
+   services:
+     amazon-photos-sync:
+       build: .
+       container_name: amazon-photos-sync
+       restart: unless-stopped
+       ports:
+         - "5001:5000"
+       environment:
+         - WATCH_DIR=/watch_dir
+         - DRY_RUN=false
+         - SYNC_EXTENSIONS=heic jpg jpeg png
+         - SYNC_RECURSIVE=true
+         - AMAZON_EMAIL=deine-email@example.de
+         - AMAZON_PASSWORD=dein-passwort
+       volumes:
+         - /pfad/zu/deinen/fotos:/watch_dir
+         - ./config:/config
    ```
-   This will open a **non-headless** Chrome browser. Log in, solve the Captcha/2FA, and let the script finish.
-   
-2. **Move cookies to your configuration folder**:
-   The script saves the cookies to `docker_sync/cookies.json`. Copy this file to your mapped `./config` directory:
+2. Starte den Container:
    ```bash
-   mkdir -p config
-   cp docker_sync/cookies.json config/
+   docker compose up --build -d
    ```
+3. Öffne **`http://localhost:5001`** in deinem Webbrowser.
+   - Falls ein **Captcha** oder **MFA/OTP-Code** erforderlich ist, zeigt die Weboberfläche einen Screenshot an. Gib den Code einfach in das Formular ein.
+   - Falls Amazon eine **Freigabe per App oder E-Mail** verlangt, bestätige diese auf deinem Smartphone und klicke in der Weboberfläche auf **„Ich habe die Freigabe erteilt / Status aktualisieren“**.
+   - Sobald die Anmeldung erfolgreich war, werden die Cookies unter `./config/cookies.json` gespeichert und der Hintergrund-Synchronisierungsdienst startet.
 
-3. **Deploy to unRAID / Headless server**:
-   - Map the container `/config` directory to a persistent directory (e.g., `/mnt/user/appdata/amazon-photos-sync/config`).
-   - Copy your generated `cookies.json` directly into that folder on your server.
-   - Start the container. It will detect the valid cookies, bypass the login flow, and run 100% autonomously.
+### Manueller Cookie-Import (Alternative für Headless-Server)
+Falls du deine Zugangsdaten (E-Mail/Passwort) nicht im Docker-Compose-File im Klartext eintragen möchtest:
+1. Melde dich in deinem normalen Browser bei Amazon.de an.
+2. Exportiere deine Cookies im JSON-Format mit einer Browser-Erweiterung (z. B. *EditThisCookie*).
+3. Öffne `http://localhost:5001`, wähle den Reiter **„Cookie-Import“**, füge die JSON-Daten ein und klicke auf **„Cookies speichern“**.
+
+---
 
 ## Table of Contents
 
