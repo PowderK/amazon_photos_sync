@@ -22,6 +22,7 @@ This fork transforms the original library into an automated, containerized **1-w
    - **Headless Selenium**: Runs Selenium inside the container using pre-installed system Chromium and chromium-driver.
    - **Smart Entrypoint**: Checks for cookies. If `AMAZON_EMAIL` and `AMAZON_PASSWORD` are provided, it attempts automatic headless login on startup.
    - **Flask Login Web UI**: If no cookies are found (or if automatic login fails due to Captcha/MFA), it starts a Flask web app on port `5000` (mapped to `5001` on host). Here you can log in interactively. It displays screenshots of the headless browser to guide you through MFA/OTP prompts and device approvals (e.g. push confirmation links).
+   - **Pushover Notifications**: Sends instant alerts to your phone if the Amazon Photos token expires or cookie validation fails, so you know immediately when interactive re-authentication is required.
 
 ### Docker Quickstart
 
@@ -41,6 +42,8 @@ This fork transforms the original library into an automated, containerized **1-w
          - SYNC_RECURSIVE=true
          - AMAZON_EMAIL=your-email@example.com
          - AMAZON_PASSWORD=your-password
+         - PUSHOVER_TOKEN=your-pushover-app-token
+         - PUSHOVER_USER=your-pushover-user-key
        volumes:
          - /path/to/your/photos:/watch_dir
          - ./config:/config
@@ -54,6 +57,8 @@ This fork transforms the original library into an automated, containerized **1-w
    - If Amazon requires a mobile app push confirmation or email link approval, the Web UI will guide you. Approve it on your device and click **"Ich habe die Freigabe erteilt / Status aktualisieren"**.
    - Once successful, the sync manager automatically starts in the background.
 
+* **Pushover Notifications (Optional)**: If you configure `PUSHOVER_TOKEN` (or `PUSHOVER_APP_TOKEN`) and `PUSHOVER_USER` (or `PUSHOVER_USER_KEY`) as environment variables, the service will send a push notification to your device whenever the session token expires (401 error) or fails initial validation. The notification status is automatically reset once you log in again.
+
 ---
 
 ## Deutsche Version (German Guide)
@@ -64,6 +69,7 @@ Dieses Projekt ist ein Docker-basierter **Einweg-Synchronisierungs-Dienst** für
 * **Keine Duplikate**: Vor dem Upload wird geprüft, ob das Bild bereits bei Amazon vorhanden ist. Der Abgleich erfolgt über eine lokale SQLite-Datenbank (`sync_cache.db`), MD5-Hashes und das **Aufnahmedatum (EXIF)**.
 * **Ausschluss von Videos**: Um deinen Speicherplatz zu schonen, kannst du den Upload auf bestimmte Formate einschränken (z. B. `heic jpg jpeg png`).
 * **Intelligenter Login (Web-Interface)**: Da Amazon oft Sicherheitsabfragen (Captchas, 2FA, Freigabe-Links) fordert, stellt der Container bei der Ersteinrichtung eine einfache Weboberfläche bereit.
+* **Pushover-Benachrichtigungen**: Sendet eine Push-Nachricht auf dein Smartphone, wenn der Session-Token abläuft oder ungültig wird, damit du sofort weißt, wann eine erneute Anmeldung erforderlich ist.
 
 ### Schnellstart mit Docker
 
@@ -83,6 +89,8 @@ Dieses Projekt ist ein Docker-basierter **Einweg-Synchronisierungs-Dienst** für
          - SYNC_RECURSIVE=true
          - AMAZON_EMAIL=deine-email@example.de
          - AMAZON_PASSWORD=dein-passwort
+         - PUSHOVER_TOKEN=dein-pushover-app-token
+         - PUSHOVER_USER=dein-pushover-user-key
        volumes:
          - /pfad/zu/deinen/fotos:/watch_dir
          - ./config:/config
@@ -95,6 +103,8 @@ Dieses Projekt ist ein Docker-basierter **Einweg-Synchronisierungs-Dienst** für
    - Falls ein **Captcha** oder **MFA/OTP-Code** erforderlich ist, zeigt die Weboberfläche einen Screenshot an. Gib den Code einfach in das Formular ein.
    - Falls Amazon eine **Freigabe per App oder E-Mail** verlangt, bestätige diese auf deinem Smartphone und klicke in der Weboberfläche auf **„Ich habe die Freigabe erteilt / Status aktualisieren“**.
    - Sobald die Anmeldung erfolgreich war, werden die Cookies unter `./config/cookies.json` gespeichert und der Hintergrund-Synchronisierungsdienst startet.
+
+* **Pushover-Benachrichtigungen (Optional)**: Wenn du die Umgebungsvariablen `PUSHOVER_TOKEN` (oder `PUSHOVER_APP_TOKEN`) und `PUSHOVER_USER` (oder `PUSHOVER_USER_KEY`) konfigurierst, sendet der Container dir automatisch eine Push-Nachricht auf dein Gerät, sobald die Anmeldung abgelaufen ist (401-Fehler). Die Benachrichtigung wird nur einmal gesendet (verhindert Spam) und wird automatisch zurückgesetzt, sobald du dich erneut anmeldest.
 
 ### Manueller Cookie-Import (Alternative für Headless-Server)
 Falls du deine Zugangsdaten (E-Mail/Passwort) nicht im Docker-Compose-File im Klartext eintragen möchtest:
