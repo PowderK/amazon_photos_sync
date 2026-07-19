@@ -39,10 +39,22 @@ try:
     r = requests.get(f'https://www.amazon.{tld}/drive/v1/account/usage', headers=headers, cookies=cookies, timeout=10)
     if r.status_code == 401:
         print('[Entrypoint] Existing cookies are expired (401).')
+        try:
+            sys.path.append('/app')
+            from docker_sync.notifications import send_pushover_notification
+            send_pushover_notification("Amazon Photos cookies have expired (401). Please re-authenticate.", title="Amazon Photos Sync Alert")
+        except Exception as pe:
+            print(f'[Entrypoint] Failed to send Pushover alert: {pe}')
         sys.exit(1)
         
     r.raise_for_status()
     print('[Entrypoint] Cookies are valid.')
+    try:
+        sys.path.append('/app')
+        from docker_sync.notifications import reset_pushover_marker
+        reset_pushover_marker()
+    except Exception:
+        pass
     sys.exit(0)
 except Exception as e:
     print(f'[Entrypoint] Cookie validation failed: {e}')

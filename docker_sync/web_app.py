@@ -81,6 +81,11 @@ def parse_and_save_cookies(cookies_str):
         cookie_file = os.path.join(config_dir, "cookies.json")
         with open(cookie_file, "w") as f:
             json.dump(cookies_dict, f)
+        try:
+            from docker_sync.notifications import reset_pushover_marker
+            reset_pushover_marker()
+        except Exception:
+            pass
         return True
     except Exception as e:
         print(f"Error parsing cookies: {e}")
@@ -117,6 +122,11 @@ def evaluate_page_state(driver):
             with open(cookie_file, "w") as f:
                 json.dump(cookies_dict, f)
             print("[Web UI Login] Cookies successfully saved.")
+            try:
+                from docker_sync.notifications import reset_pushover_marker
+                reset_pushover_marker()
+            except Exception:
+                pass
             
             # Pre-initialize client
             ap_client = AmazonPhotos(cookies=cookies_dict, skip_folders=True)

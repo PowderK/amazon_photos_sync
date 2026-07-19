@@ -131,6 +131,11 @@ def get_amazon_cookies(email=None, password=None, force_refresh=False):
                 with open(cookie_file, "w") as f:
                     json.dump(cookies_dict, f)
                 print("Cookies saved to cookies.json.")
+                try:
+                    from docker_sync.notifications import reset_pushover_marker
+                    reset_pushover_marker()
+                except Exception:
+                    pass
             except Exception as e:
                 print(f"Failed to save cookies: {e}")
 

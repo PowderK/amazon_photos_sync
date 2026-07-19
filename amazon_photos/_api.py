@@ -43,6 +43,19 @@ logging.config.dictConfig(LOG_CONFIG)
 logger = getLogger(list(Logger.manager.loggerDict)[-1])
 
 
+def _notify_expired_token():
+    try:
+        from docker_sync.notifications import send_pushover_notification
+        send_pushover_notification(
+            "Amazon Photos session has expired (401). Please re-authenticate.",
+            title="Amazon Photos Sync Alert"
+        )
+    except ImportError:
+        pass
+    except Exception as pe:
+        logger.error(f"Failed to send Pushover alert: {pe}")
+
+
 class AmazonPhotos:
     def __init__(self, cookies: dict, db_path: str | Path = 'ap.parquet', tmp: str = '', skip_folders: bool = False, **kwargs):
         self.n_threads = psutil.cpu_count(logical=True)
@@ -156,6 +169,7 @@ class AmazonPhotos:
                     if r.status_code == 401:  # BadAuthenticationData
                         logger.error(f'{r.status_code} {r.text}')
                         logger.error(f'Cookies expired. Log in to Amazon Photos and copy fresh cookies.')
+                        _notify_expired_token()
                         # sys.exit(1)
 
                     r.raise_for_status()
@@ -193,6 +207,7 @@ class AmazonPhotos:
                 if r.status_code == 401:  # "BadAuthenticationData"
                     logger.error(f'{r.status_code} {r.text}')
                     logger.error(f'Cookies expired. Log in to Amazon Photos and copy fresh cookies.')
+                    _notify_expired_token()
                     # sys.exit(1) ## testing
 
                 r.raise_for_status()
@@ -379,6 +394,7 @@ class AmazonPhotos:
                         if r.status_code == 401:  # BadAuthenticationData
                             logger.error(f'{r.status_code} {r.text}')
                             logger.error(f'Cookies expired. Log in to Amazon Photos and copy fresh cookies.')
+                            _notify_expired_token()
                             # sys.exit(1)
                         r.raise_for_status()
                         return r
