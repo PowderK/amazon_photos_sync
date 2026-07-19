@@ -42,7 +42,7 @@ try:
         try:
             sys.path.append('/app')
             from docker_sync.notifications import send_pushover_notification
-            send_pushover_notification("Amazon Photos cookies have expired (401). Please re-authenticate.", title="Amazon Photos Sync Alert")
+            send_pushover_notification('Amazon Photos cookies have expired (401). Please re-authenticate.', title='Amazon Photos Sync Alert')
         except Exception as pe:
             print(f'[Entrypoint] Failed to send Pushover alert: {pe}')
         sys.exit(1)
