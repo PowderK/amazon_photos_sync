@@ -42,6 +42,8 @@ if platform.system() != 'Windows':
 logging.config.dictConfig(LOG_CONFIG)
 logger = getLogger(list(Logger.manager.loggerDict)[-1])
 
+DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+
 
 def _notify_expired_token():
     try:
@@ -79,7 +81,7 @@ class AmazonPhotos:
             follow_redirects=True,
             timeout=60,
             headers={
-                'user-agent': random.choice(USER_AGENTS),
+                'user-agent': DEFAULT_USER_AGENT,
                 'x-amzn-sessionid': cookies['session-id'],
             },
             cookies=cookies

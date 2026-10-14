@@ -66,16 +66,16 @@ def parse_and_save_cookies(cookies_str):
             for item in data:
                 name = item.get("name")
                 value = item.get("value")
-                if name in ["session-id", "ubid-acbde", "at-acbde"]:
+                if name and value:
                     cookies_dict[name] = value
         elif isinstance(data, dict):
-            for name in ["session-id", "ubid-acbde", "at-acbde"]:
-                if name in data:
-                    cookies_dict[name] = data[name]
+            for name, value in data.items():
+                cookies_dict[name] = value
         
         # Verify we got the essential cookies
-        if not cookies_dict.get("session-id") or not cookies_dict.get("at-acbde"):
-            raise ValueError("Required cookies (session-id, at-acbde) are missing.")
+        has_at = cookies_dict.get("at-acbde") or any(k.startswith("at-") for k in cookies_dict)
+        if not cookies_dict.get("session-id") or not has_at:
+            raise ValueError("Required cookies (session-id, at-*) are missing.")
             
         config_dir = "/config" if os.path.exists("/config") else os.path.dirname(__file__)
         cookie_file = os.path.join(config_dir, "cookies.json")
@@ -113,15 +113,15 @@ def evaluate_page_state(driver):
         cookies_dict = {}
         cookies = driver.get_cookies()
         for cookie in cookies:
-            if cookie['name'] in ['at-acbde', 'ubid-acbde', 'session-id']:
-                cookies_dict[cookie['name']] = cookie['value']
+            cookies_dict[cookie['name']] = cookie['value']
         
-        if cookies_dict.get('session-id') and cookies_dict.get('at-acbde'):
+        has_at = cookies_dict.get('at-acbde') or any(k.startswith('at-') for k in cookies_dict)
+        if cookies_dict.get('session-id') and has_at:
             config_dir = "/config" if os.path.exists("/config") else os.path.dirname(__file__)
             cookie_file = os.path.join(config_dir, "cookies.json")
             with open(cookie_file, "w") as f:
                 json.dump(cookies_dict, f)
-            print("[Web UI Login] Cookies successfully saved.")
+            print(f"[Web UI Login] {len(cookies_dict)} cookies successfully saved.")
             try:
                 from docker_sync.notifications import reset_pushover_marker
                 reset_pushover_marker()
@@ -278,6 +278,15 @@ def login():
             """, password_input, password)
             print("[Web UI Login] Password entered.")
             
+            # Check 'rememberMe' ("Angemeldet bleiben")
+            try:
+                remember_me = driver.find_element(By.XPATH, '//input[@name="rememberMe"]')
+                if not remember_me.is_selected():
+                    driver.execute_script("arguments[0].click();", remember_me)
+                    print("[Web UI Login] Checked 'rememberMe' checkbox via JS.")
+            except Exception as e:
+                print(f"[Web UI Login] Notice: Could not select rememberMe checkbox: {e}")
+
             # Submit Credentials
             print("[Web UI Login] Submitting password form via JS click...")
             try:
