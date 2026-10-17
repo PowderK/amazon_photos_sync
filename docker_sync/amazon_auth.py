@@ -100,6 +100,8 @@ def extract_and_save_cookies(driver, cookie_file):
             return cookies_dict
     return None
 
+SIGNIN_URL = "https://www.amazon.de/ap/signin?openid.return_to=https%3A%2F%2Fwww.amazon.de%2Fphotos&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=amzn_photos_web_de&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0"
+
 def get_amazon_cookies(email=None, password=None, force_refresh=False):
     """
     Logs into Amazon.de or silently refreshes the session via persistent Chromium profile.
@@ -121,9 +123,16 @@ def get_amazon_cookies(email=None, password=None, force_refresh=False):
     cookies_dict = {}
 
     try:
-        print("[Auth] Navigating to Amazon Photos to test existing session / refresh...")
-        driver.get("https://www.amazon.de/photos")
-        time.sleep(4)
+        print("[Auth] Navigating to Amazon sign-in URL to test existing session / refresh...")
+        driver.get(SIGNIN_URL)
+        
+        # Wait up to 8 seconds to see if Amazon automatically redirects to photos
+        try:
+            WebDriverWait(driver, 8).until(
+                lambda d: "amazon.de/photos" in d.current_url or "amazon.de/drive" in d.current_url
+            )
+        except Exception:
+            pass
 
         current_url = driver.current_url
         print(f"[Auth] Current URL: {current_url}")
@@ -135,14 +144,22 @@ def get_amazon_cookies(email=None, password=None, force_refresh=False):
             if saved:
                 return saved
 
-        # If redirected to signin page, we need credentials
+        # If on marketing landing page, try navigating to signin again
+        if "node=12153288031" in current_url or "unrec" in current_url:
+            print("[Auth] Landed on marketing page, redirecting to sign-in page...")
+            driver.get(SIGNIN_URL)
+            time.sleep(3)
+            current_url = driver.current_url
+            print(f"[Auth] Sign-in URL: {current_url}")
+
+        # If credentials not provided as arguments, read from environment
         if not email:
             email = os.environ.get("AMAZON_EMAIL")
         if not password:
             password = os.environ.get("AMAZON_PASSWORD")
 
         if not email or not password:
-            raise ValueError("Amazon session expired and credentials (AMAZON_EMAIL, AMAZON_PASSWORD) are not configured.")
+            raise ValueError("Amazon session expired. AMAZON_EMAIL and AMAZON_PASSWORD environment variables are required in Unraid for automatic background re-login.")
 
         # Check for Email input field
         try:
@@ -151,11 +168,17 @@ def get_amazon_cookies(email=None, password=None, force_refresh=False):
             )
             email_input.clear()
             email_input.send_keys(email)
+            driver.execute_script("""
+                var el = arguments[0];
+                el.value = arguments[1];
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            """, email_input, email)
             print("[Auth] Entered email.")
 
             try:
                 continue_btn = driver.find_element(By.ID, "continue")
-                continue_btn.click()
+                driver.execute_script("arguments[0].click();", continue_btn)
                 time.sleep(2)
             except Exception:
                 pass
@@ -169,6 +192,12 @@ def get_amazon_cookies(email=None, password=None, force_refresh=False):
         )
         password_input.clear()
         password_input.send_keys(password)
+        driver.execute_script("""
+            var el = arguments[0];
+            el.value = arguments[1];
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        """, password_input, password)
         print("[Auth] Entered password.")
 
         # Check 'rememberMe' ("Angemeldet bleiben")
@@ -182,11 +211,11 @@ def get_amazon_cookies(email=None, password=None, force_refresh=False):
 
         # Click sign in
         signin_btn = driver.find_element(By.ID, "signInSubmit")
-        signin_btn.click()
+        driver.execute_script("arguments[0].click();", signin_btn)
         print("[Auth] Submitted sign-in form. Waiting for redirect...")
 
         # Wait for successful login (redirect to Amazon Photos)
-        WebDriverWait(driver, 15).until(
+        WebDriverWait(driver, 20).until(
             EC.url_contains("amazon.de/photos")
         )
         time.sleep(3)  # Wait for cookies to settle

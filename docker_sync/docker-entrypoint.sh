@@ -18,34 +18,16 @@ COOKIES_VALID=false
 if [ -f "$COOKIE_FILE" ]; then
     echo "[Entrypoint] Validating existing cookies.json..."
     if python -c "
-import sys, os, json, requests
+import sys, os, json
+sys.path.append('/app')
 try:
     with open('${COOKIE_FILE}', 'r') as f:
         cookies = json.load(f)
     
-    headers = {
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'x-amzn-sessionid': cookies.get('session-id', ''),
-    }
-    
-    tld = 'de'
-    for k in cookies:
-        if k.endswith('_main'):
-            tld = 'com'
-            break
-        elif k.startswith('at-acb'):
-            tld = k.split('at-acb')[-1]
-            break
-            
-    r = requests.get(f'https://www.amazon.{tld}/drive/v1/account/usage', headers=headers, cookies=cookies, timeout=15)
-    if r.status_code == 401:
-        print('[Entrypoint] Existing cookies are expired (401).')
-        sys.exit(1)
-        
-    r.raise_for_status()
-    print('[Entrypoint] Cookies are valid.')
+    from amazon_photos import AmazonPhotos
+    ap = AmazonPhotos(cookies=cookies, skip_folders=True)
+    print('[Entrypoint] Cookies are valid and verified with AmazonPhotos!')
     try:
-        sys.path.append('/app')
         from docker_sync.notifications import reset_pushover_marker
         reset_pushover_marker()
     except Exception:
