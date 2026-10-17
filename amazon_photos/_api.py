@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging.config
 import math
@@ -60,6 +61,12 @@ def _notify_expired_token():
 
 class AmazonPhotos:
     def __init__(self, cookies: dict, db_path: str | Path = 'ap.parquet', tmp: str = '', skip_folders: bool = False, **kwargs):
+        if str(db_path) == 'ap.parquet':
+            env_db = os.environ.get('AP_DB_PATH')
+            if env_db:
+                db_path = env_db
+            elif os.path.exists('/config'):
+                db_path = '/config/ap.parquet'
         self.n_threads = psutil.cpu_count(logical=True)
         self.tld = self.determine_tld(cookies)
         self.drive_url = f'https://www.amazon.{self.tld}/drive/v1'

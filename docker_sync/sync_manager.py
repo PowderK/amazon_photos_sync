@@ -8,6 +8,7 @@ import exifread
 class SyncCache:
     def __init__(self, db_path):
         self.db_path = db_path
+        os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
         self._init_db()
 
     def _init_db(self):
@@ -55,8 +56,12 @@ class SyncManager:
             self.allowed_extensions = {ext.lower().lstrip('.') for ext in allowed_extensions}
         
         if db_path is None:
-            db_path = os.path.join(os.path.dirname(__file__), "sync_cache.db")
+            config_dir = "/config" if os.path.exists("/config") else os.path.join(os.path.dirname(os.path.dirname(__file__)), "config")
+            if not os.path.exists(config_dir):
+                config_dir = os.path.dirname(__file__)
+            db_path = os.path.join(config_dir, "sync_cache.db")
         self.cache = SyncCache(db_path)
+        print(f"[SyncManager] Cache-Datenbank: {db_path}")
         
         # Hole existierende MD5 Hashes aus der Amazon Photos Datenbank
         self.existing_md5s = set()
@@ -123,37 +128,42 @@ class SyncManager:
                 
         return False
 
-    def process_file(self, file_path: str):
+    def process_file(self, file_path: str, quiet_cached: bool = False) -> str:
         """Überprüft eine einzelne Datei und gleicht sie mit Amazon Photos ab."""
         if not os.path.isfile(file_path):
-            return
+            return "skipped_not_file"
             
         # Ignoriere versteckte Dateien
         if os.path.basename(file_path).startswith('.'):
-            return
+            return "skipped_hidden"
 
         # Filtere nach Dateiendungen, falls konfiguriert
         if self.allowed_extensions:
             ext = os.path.splitext(file_path)[1].lower().lstrip('.')
             if ext not in self.allowed_extensions:
-                return
+                return "skipped_extension"
 
         filename = os.path.basename(file_path)
-        stat = os.stat(file_path)
-        file_size = stat.st_size
-        mtime = stat.st_mtime
+        try:
+            stat = os.stat(file_path)
+            file_size = stat.st_size
+            mtime = stat.st_mtime
+        except Exception as e:
+            print(f"[SyncManager] Fehler beim Auslesen von Dateistatus für {file_path}: {e}")
+            return "error_stat"
         
         # 1. Stufe: Abgleich mit lokalem SQLite Cache
         cached = self.cache.get_file(file_path)
         if cached:
             cached_size, cached_mtime, cached_md5, cached_exif = cached
             if cached_size == file_size and abs(cached_mtime - mtime) < 1.0:
-                print(f"[DRY-RUN/SYNC] Upload nicht notwendig (bereits lokal als synchronisiert markiert): {file_path}")
-                return
+                if not quiet_cached:
+                    print(f"[DRY-RUN/SYNC] Upload nicht notwendig (bereits lokal als synchronisiert markiert): {file_path}")
+                return "cached"
 
         file_md5 = self.calculate_md5(file_path)
         if not file_md5:
-            return
+            return "error_md5"
 
         exif_date = self.get_exif_date(file_path)
         mode_str = "[DRY-RUN]" if self.dry_run else "[SYNC]"
@@ -163,14 +173,14 @@ class SyncManager:
             print(f"{mode_str} Upload nicht notwendig (MD5 existiert in Amazon DB): {file_path}")
             if not self.dry_run:
                 self.cache.save_file(file_path, file_size, mtime, file_md5, exif_date)
-            return
+            return "amazon_md5"
 
         # 3. Stufe: Abgleich über Name + EXIF-Datum
         if exif_date and self.find_in_amazon_db(filename, exif_date):
             print(f"{mode_str} Upload nicht notwendig (Name + EXIF-Aufnahmedatum '{exif_date}' stimmen überein): {file_path}")
             if not self.dry_run:
                 self.cache.save_file(file_path, file_size, mtime, file_md5, exif_date)
-            return
+            return "amazon_exif"
 
         # Check if name exists but metadata/MD5 is different (Warning only)
         if self.ap_client and hasattr(self.ap_client, 'db') and 'name' in self.ap_client.db.columns:
@@ -198,28 +208,81 @@ class SyncManager:
                 
                 if res.status_code == 409:
                     print(f"[SYNC] Datei existiert bereits auf Amazon (Konflikt): {filename}")
+                    status = "conflict"
                 else:
                     res.raise_for_status()
                     print(f"[SYNC] Erfolgreich hochgeladen: {filename}")
+                    status = "uploaded"
                 
                 # Speichern im lokalen SQLite Cache und im MD5-Set
                 self.cache.save_file(file_path, file_size, mtime, file_md5, exif_date)
                 self.existing_md5s.add(file_md5)
+                return status
             except Exception as e:
                 print(f"[SYNC] Fehler beim Hochladen von {filename}: {e}")
+                return "error_upload"
+        return "needs_upload"
 
     def scan_directory(self, folder_path: str, recursive: bool = True):
         """Scannt ein ganzes Verzeichnis (für den initialen Abgleich)."""
         print(f"[SyncManager] Starte Verzeichnis-Scan: {folder_path} (rekursiv={recursive})")
+        stats = {
+            "total_files": 0,
+            "cached": 0,
+            "amazon_matched": 0,
+            "uploaded": 0,
+            "conflict": 0,
+            "needs_upload": 0,
+            "error": 0,
+            "skipped": 0
+        }
+
+        def handle_file(fp: str):
+            if os.path.basename(fp).startswith('.'):
+                return
+            if self.allowed_extensions:
+                ext = os.path.splitext(fp)[1].lower().lstrip('.')
+                if ext not in self.allowed_extensions:
+                    return
+
+            stats["total_files"] += 1
+            res = self.process_file(fp, quiet_cached=True)
+            if res == "cached":
+                stats["cached"] += 1
+            elif res in ("amazon_md5", "amazon_exif"):
+                stats["amazon_matched"] += 1
+            elif res == "uploaded":
+                stats["uploaded"] += 1
+            elif res == "conflict":
+                stats["conflict"] += 1
+            elif res == "needs_upload":
+                stats["needs_upload"] += 1
+            elif res and res.startswith("error"):
+                stats["error"] += 1
+            elif res and res.startswith("skipped"):
+                stats["skipped"] += 1
+
         if recursive:
             for root, _, files in os.walk(folder_path):
                 for file in files:
                     file_path = os.path.join(root, file)
-                    self.process_file(file_path)
+                    handle_file(file_path)
         else:
             try:
                 for entry in os.scandir(folder_path):
                     if entry.is_file():
-                        self.process_file(entry.path)
+                        handle_file(entry.path)
             except Exception as e:
                 print(f"[SyncManager] Fehler beim Scannen des Verzeichnisses {folder_path}: {e}")
+
+        summary = (
+            f"[SyncManager] Scan abgeschlossen für {folder_path}: "
+            f"{stats['total_files']} relevante Dateien geprüft | "
+            f"{stats['cached']} bereits lokal synchronisiert | "
+            f"{stats['amazon_matched']} neu mit Amazon abgeglichen | "
+            f"{stats['uploaded']} hochgeladen | "
+            f"{stats['needs_upload']} ausstehend (Dry-Run) | "
+            f"{stats['conflict']} Konflikte | "
+            f"{stats['error']} Fehler"
+        )
+        print(summary)

@@ -10,6 +10,7 @@ services:
       - DRY_RUN=false
       - SYNC_EXTENSIONS=heic jpg jpeg png
       - SYNC_RECURSIVE=true
+      - SKIP_INITIAL_SCAN=false
       - AMAZON_EMAIL=b.kreitz@mail.de
       - AMAZON_PASSWORD=Wb2010eYH!an
     volumes:

@@ -52,7 +52,9 @@ def init_amazon_photos(email=None, password=None):
         
         t1 = time.time()
         print(f"[{time.strftime('%H:%M:%S')}] Instantiating AmazonPhotos class (fast init without folders)...")
-        ap_client = AmazonPhotos(cookies=cookies, skip_folders=True)
+        config_dir = "/config" if os.path.exists("/config") else os.path.dirname(__file__)
+        ap_db_path = os.path.join(config_dir, "ap.parquet")
+        ap_client = AmazonPhotos(cookies=cookies, db_path=ap_db_path, skip_folders=True)
         print(f"[{time.strftime('%H:%M:%S')}] Amazon Photos Client class initialized after {time.time() - t1:.2f} seconds.")
     else:
         print(f"[{time.strftime('%H:%M:%S')}] Using existing Amazon Photos Client.")
@@ -129,7 +131,8 @@ def evaluate_page_state(driver):
                 pass
             
             # Pre-initialize client
-            ap_client = AmazonPhotos(cookies=cookies_dict, skip_folders=True)
+            ap_db_path = os.path.join(config_dir, "ap.parquet")
+            ap_client = AmazonPhotos(cookies=cookies_dict, db_path=ap_db_path, skip_folders=True)
             
             try:
                 driver.quit()

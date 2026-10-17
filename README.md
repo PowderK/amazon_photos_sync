@@ -9,8 +9,9 @@ This fork transforms the original library into an automated, containerized **1-w
 ### Key Enhancements
 
 1. **Robust Sync Manager (`sync_manager.py`)**:
-   - **Multi-Layer Deduplication**: First checks a local SQLite cache database to instantly skip already synced files without slow hashing. Second, matches MD5 hashes. Third, falls back to matching by **File Name + EXIF Taken Date** to bypass uploads of HEIC/JPEG files that were transcoded or metadata-modified by official Amazon uploaders.
-   - **Upload Cache (`sync_cache.db`)**: Stores metadata of successfully synced files (including files that threw a `409 Conflict` because they already exist on Amazon) to skip them instantly on subsequent runs.
+   - **Multi-Layer Deduplication**: First checks a local SQLite cache database (`sync_cache.db` in `/config`) to instantly skip already synced files without slow hashing. Second, matches MD5 hashes from the Amazon Photos catalog (`ap.parquet` in `/config`). Third, falls back to matching by **File Name + EXIF Taken Date** to bypass uploads of HEIC/JPEG files that were transcoded or metadata-modified by official Amazon uploaders.
+   - **Persistent Databases in `/config`**: Both `sync_cache.db` and `ap.parquet` persist across container restarts and updates inside `/config` (e.g. Unraid `/mnt/user/appdata/amazon-photos-sync`).
+   - **Quiet Startup Scans**: Initial directory scans only log files requiring upload or action, concluding with an aggregated statistics summary.
 2. **Automated Folder Watcher (`folder_watcher.py`)**:
    - Uses `watchdog` to monitor a specified directory in real-time.
    - **CLI & Environment Parameters**:
@@ -18,6 +19,7 @@ This fork transforms the original library into an automated, containerized **1-w
      - `--dry-run` / `-d` (env `DRY_RUN`): Simulate uploads.
      - `--extensions` / `-e` (env `SYNC_EXTENSIONS`): Restrict sync to specific file extensions (e.g. `heic jpg jpeg png`) so video files do not consume your limited Amazon Photos quota.
      - `--recursive` / `-r` (or `--no-recursive`) (env `SYNC_RECURSIVE`): Watch subdirectories recursively.
+     - `--skip-initial-scan` (env `SKIP_INITIAL_SCAN`): Skips the initial directory scan on container start and only monitors new and modified files in real-time (default: `false`).
 3. **Orchestrated Docker Environment**:
    - **Headless Selenium**: Runs Selenium inside the container using pre-installed system Chromium and chromium-driver.
    - **Smart Entrypoint**: Checks for cookies. If `AMAZON_EMAIL` and `AMAZON_PASSWORD` are provided, it attempts automatic headless login on startup.
@@ -40,6 +42,7 @@ This fork transforms the original library into an automated, containerized **1-w
          - DRY_RUN=false
          - SYNC_EXTENSIONS=heic jpg jpeg png
          - SYNC_RECURSIVE=true
+         - SKIP_INITIAL_SCAN=false
          - AMAZON_EMAIL=your-email@example.com
          - AMAZON_PASSWORD=your-password
          - PUSHOVER_TOKEN=your-pushover-app-token
@@ -66,7 +69,9 @@ This fork transforms the original library into an automated, containerized **1-w
 Dieses Projekt ist ein Docker-basierter **Einweg-Synchronisierungs-Dienst** für Amazon Photos. Er überwacht ein lokales Verzeichnis und lädt neue Bilder automatisch im Hintergrund hoch.
 
 ### Besonderheiten dieser Version:
-* **Keine Duplikate**: Vor dem Upload wird geprüft, ob das Bild bereits bei Amazon vorhanden ist. Der Abgleich erfolgt über eine lokale SQLite-Datenbank (`sync_cache.db`), MD5-Hashes und das **Aufnahmedatum (EXIF)**.
+* **Persistenter Datenbank-Cache**: Die SQLite-Cache-Datenbank (`sync_cache.db`) und der Amazon-Katalog (`ap.parquet`) werden dauerhaft im gemounteten Verzeichnis `/config` gespeichert. Dadurch müssen nach einem Neustart des Containers weder der Amazon-Katalog neu heruntergeladen noch bereits synchronisierte Dateien neu gehasht werden.
+* **Keine Duplikate**: Vor dem Upload wird geprüft, ob das Bild bereits bei Amazon vorhanden ist. Der Abgleich erfolgt über den persistenten lokalen SQLite-Cache, MD5-Hashes und das **Aufnahmedatum (EXIF)**.
+* **Kompakte Scan-Logs & Option zum Überspringen**: Beim Start wird das Verzeichnis zügig geprüft und eine übersichtliche Zusammenfassung ausgegeben, anstatt jede einzelne synchronisierte Datei mit einer Zeile zu protokollieren. Mit `SKIP_INITIAL_SCAN=true` kann der Start-Scan auf Wunsch auch komplett übersprungen werden.
 * **Ausschluss von Videos**: Um deinen Speicherplatz zu schonen, kannst du den Upload auf bestimmte Formate einschränken (z. B. `heic jpg jpeg png`).
 * **Intelligenter Login (Web-Interface)**: Da Amazon oft Sicherheitsabfragen (Captchas, 2FA, Freigabe-Links) fordert, stellt der Container bei der Ersteinrichtung eine einfache Weboberfläche bereit.
 * **Pushover-Benachrichtigungen**: Sendet eine Push-Nachricht auf dein Smartphone, wenn der Session-Token abläuft oder ungültig wird, damit du sofort weißt, wann eine erneute Anmeldung erforderlich ist.
@@ -87,6 +92,7 @@ Dieses Projekt ist ein Docker-basierter **Einweg-Synchronisierungs-Dienst** für
          - DRY_RUN=false
          - SYNC_EXTENSIONS=heic jpg jpeg png
          - SYNC_RECURSIVE=true
+         - SKIP_INITIAL_SCAN=false
          - AMAZON_EMAIL=deine-email@example.de
          - AMAZON_PASSWORD=dein-passwort
          - PUSHOVER_TOKEN=dein-pushover-app-token
